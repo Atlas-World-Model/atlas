@@ -69,17 +69,32 @@ export default {
     if (request.method === "POST" && url.pathname === "/workflow/campaign") {
       // Auth check
       const auth = request.headers.get("authorization") || "";
-      if (env.NEYNAR_WEBHOOK_SECRET && auth !== `Bearer ${env.NEYNAR_WEBHOOK_SECRET}`) {
+      if (!env.NEYNAR_WEBHOOK_SECRET || auth !== `Bearer ${env.NEYNAR_WEBHOOK_SECRET}`) {
         return new Response("Unauthorized", { status: 401 });
       }
 
-      const body = await request.json() as {
+      let body: {
         campaignRunId: string;
         campaignId: string;
         questionId: string;
         expectedAction: string;
         collectDays?: number;
       };
+
+      try {
+        body = await request.json();
+      } catch {
+        return new Response("Invalid JSON", { status: 400 });
+      }
+
+      if (
+        !body.campaignRunId ||
+        !body.campaignId ||
+        !body.questionId ||
+        !body.expectedAction
+      ) {
+        return new Response("Missing workflow fields", { status: 400 });
+      }
 
       const instance = await env.CAMPAIGN_LIFECYCLE.create({
         id: body.campaignRunId,

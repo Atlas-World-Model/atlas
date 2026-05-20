@@ -181,7 +181,11 @@ export class CampaignLifecycleWorkflow extends WorkflowEntrypoint<Env, CampaignP
     params: Record<string, string>,
   ): Promise<{ ok: boolean }> {
     const brainUrl = this.env.ATLAS_VPS_BRAIN_URL || "https://api.joinatlas.xyz";
-    const token = this.env.NEYNAR_WEBHOOK_SECRET || "";
+    const token = this.env.NEYNAR_WEBHOOK_SECRET;
+    if (!token) {
+      console.error("[workflow] NEYNAR_WEBHOOK_SECRET missing; refusing brain call");
+      return { ok: false };
+    }
 
     try {
       const res = await fetch(`${brainUrl}/api/brain`, {
