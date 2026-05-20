@@ -24,15 +24,17 @@ Every piece of Atlas's memory traces back to a campaign, a contributor, a rank, 
 
 ```mermaid
 graph LR
-    A["Atlas Asks"] --> B["Farcaster Collects"]
-    B --> C["Looti Ranks"]
-    C --> D["Atlas Learns"]
-    D -->|"World Model Updates"| A
+    A["🔭 Atlas Asks"] --> B["📡 Farcaster Collects"]
+    B --> C["⚖️ Looti Ranks"]
+    C --> D["🧠 Atlas Learns"]
+    D -->|"updates world model"| A
 
-    style A fill:#f9f9f9,stroke:#333,color:#1a1a1a
-    style B fill:#f9f9f9,stroke:#333,color:#1a1a1a
-    style C fill:#f9f9f9,stroke:#333,color:#1a1a1a
-    style D fill:#f9f9f9,stroke:#333,color:#1a1a1a
+    style A fill:#e0f2fe,stroke:#0284c7,stroke-width:2px,color:#0c4a6e
+    style B fill:#fef3c7,stroke:#d97706,stroke-width:2px,color:#78350f
+    style C fill:#fce7f3,stroke:#db2777,stroke-width:2px,color:#831843
+    style D fill:#d1fae5,stroke:#059669,stroke-width:2px,color:#064e3b
+
+    linkStyle default stroke:#94a3b8,stroke-width:2px
 ```
 
 **Question → Answer → Outcome.** Atlas learns from all three.
@@ -42,36 +44,22 @@ graph LR
 Each campaign runs a 7-day durable lifecycle as a Cloudflare Workflow:
 
 ```mermaid
-graph TD
-    subgraph "Day 0"
-        ASK["Ask"]
-    end
-    subgraph "Day 0–1"
-        ENGAGE["Engage & Collect"]
-    end
-    subgraph "Day 1"
-        SYNTH["Synthesize"]
-    end
-    subgraph "Day 2"
-        BUILD["Build / Test"]
-    end
-    subgraph "Day 3"
-        EVAL["Evaluate"]
-    end
-    subgraph "Day 7"
-        CLOSE["Close"]
-    end
-
-    ASK --> ENGAGE
-    ENGAGE --> SYNTH
-    SYNTH -->|"build action"| BUILD
+graph LR
+    ASK["Day 0\n─────\nAsk"] --> ENGAGE["Day 0–1\n─────\nEngage &\nCollect"]
+    ENGAGE --> SYNTH["Day 1\n─────\nSynthesize"]
+    SYNTH -->|"build"| BUILD["Day 2\n─────\nBuild &\nTest"]
     SYNTH -->|"no build"| EVAL
-    BUILD --> EVAL
-    EVAL --> CLOSE
+    BUILD --> EVAL["Day 3\n─────\nEvaluate"]
+    EVAL --> CLOSE["Day 7\n─────\nClose"]
 
-    ENGAGE -.- E1["Replies to ranked contributors\nevery 4 hours"]
-    SYNTH -.- E2["Claude Code reviews answers\nand decides next action"]
-    EVAL -.- E3["Was this worth asking?\nReputation updates"]
+    style ASK fill:#e0f2fe,stroke:#0284c7,stroke-width:2px,color:#0c4a6e
+    style ENGAGE fill:#fef3c7,stroke:#d97706,stroke-width:2px,color:#78350f
+    style SYNTH fill:#ede9fe,stroke:#7c3aed,stroke-width:2px,color:#4c1d95
+    style BUILD fill:#fce7f3,stroke:#db2777,stroke-width:2px,color:#831843
+    style EVAL fill:#ffedd5,stroke:#ea580c,stroke-width:2px,color:#7c2d12
+    style CLOSE fill:#d1fae5,stroke:#059669,stroke-width:2px,color:#064e3b
+
+    linkStyle default stroke:#94a3b8,stroke-width:2px
 ```
 
 During collection, Atlas doesn't sit idle. It actively engages — replying to ranked contributors, quoting its own cast with new angles, and adding commentary. Atlas works for its attention.
@@ -80,28 +68,38 @@ During collection, Atlas doesn't sit idle. It actively engages — replying to r
 
 ```mermaid
 graph TB
-    FC["Farcaster / Looti"] -->|"Neynar webhook"| VPS
+    FC["📡 Farcaster / Looti"] -->|"webhook"| WH
 
-    subgraph VPS["api.joinatlas.xyz"]
-        WH["Webhook Server\n(Bun)"] --> BRAIN["Atlas Brain"]
-        BRAIN --> CLAUDE["Claude Code\n(reasoning)"]
-        BRAIN --> KG["KG Pipeline\n(contributor profiling)"]
+    subgraph VPS["🧠 VPS — api.joinatlas.xyz"]
+        WH["Webhook Server"] --> BRAIN["Atlas Brain"]
+        BRAIN --> CLAUDE["Claude Code"]
+        BRAIN --> KG["KG Pipeline"]
     end
 
-    subgraph CF["Cloudflare"]
-        WORKER["Worker\n(crons: heartbeat,\nrep decay, publish)"]
-        WF["Workflow\n(per-campaign lifecycle)"]
+    subgraph CF["⚡ Cloudflare"]
+        WORKER["Worker Crons"]
+        WF["Campaign Workflow"]
     end
 
-    CF -->|"Brain API\n(reasoning needed)"| VPS
+    WF -->|"reasoning needed"| BRAIN
+    WORKER --> DB
+    WF --> DB
     VPS --> DB
-    CF --> DB
 
-    DB[("Supabase\n12 tables")]
+    DB[("💾 Supabase")]
 
-    style VPS fill:#f0f4ff,stroke:#2563eb,color:#1a1a1a
-    style CF fill:#fff4e6,stroke:#f59e0b,color:#1a1a1a
-    style DB fill:#f0fdf4,stroke:#22c55e,color:#1a1a1a
+    style VPS fill:#e0f2fe,stroke:#0284c7,stroke-width:2px,color:#0c4a6e
+    style CF fill:#fef3c7,stroke:#d97706,stroke-width:2px,color:#78350f
+    style DB fill:#d1fae5,stroke:#059669,stroke-width:2px,color:#064e3b
+    style FC fill:#fce7f3,stroke:#db2777,stroke-width:2px,color:#831843
+    style WH fill:#e0f2fe,stroke:#0284c7,color:#0c4a6e
+    style BRAIN fill:#ede9fe,stroke:#7c3aed,stroke-width:2px,color:#4c1d95
+    style CLAUDE fill:#ede9fe,stroke:#7c3aed,color:#4c1d95
+    style KG fill:#ede9fe,stroke:#7c3aed,color:#4c1d95
+    style WORKER fill:#fef3c7,stroke:#d97706,color:#78350f
+    style WF fill:#fef3c7,stroke:#d97706,color:#78350f
+
+    linkStyle default stroke:#94a3b8,stroke-width:2px
 ```
 
 **Design principle:** cheap mechanical work runs on Cloudflare. Expensive reasoning (Claude Code) runs on the VPS, only when judgment is needed.
@@ -111,15 +109,18 @@ graph TB
 Contributors earn reputation from **outcomes**, not engagement.
 
 ```mermaid
-graph TD
-    E["Engagement\n(likes, replies)"] --> L["Logged only"]
-    B["Behavioral\n(Atlas used it)"] -->|"weight 1"| R
-    G["Ground Truth\n(it held up)"] -->|"weight 2"| R
+graph LR
+    E["Engagement\nlikes, replies"] -.->|"logged only"| L["❌ No reputation\nimpact"]
+    B["Behavioral\nAtlas used it"] -->|"weight 1x"| R["✅ Reputation\nper-domain\ntime-decayed\n180-day half-life"]
+    G["Ground Truth\nit held up"] -->|"weight 2x"| R
 
-    R["Reputation\nper-domain, time-decayed\n(180-day half-life)"]
+    style E fill:#f1f5f9,stroke:#94a3b8,stroke-width:2px,color:#475569
+    style L fill:#fef2f2,stroke:#f87171,stroke-width:2px,color:#991b1b
+    style B fill:#fef3c7,stroke:#d97706,stroke-width:2px,color:#78350f
+    style G fill:#e0f2fe,stroke:#0284c7,stroke-width:2px,color:#0c4a6e
+    style R fill:#d1fae5,stroke:#059669,stroke-width:2px,color:#064e3b
 
-    style L fill:#fef2f2,stroke:#ef4444,color:#1a1a1a
-    style R fill:#f0fdf4,stroke:#22c55e,color:#1a1a1a
+    linkStyle default stroke:#94a3b8,stroke-width:2px
 ```
 
 A popular answer can be wrong. An unpopular answer can be the one that changes everything. Atlas only updates reputation from behavioral and ground-truth tiers.
