@@ -1,0 +1,44 @@
+# Atlas runtime configuration.
+#
+# This file is intentionally declarative. It describes cadence, budgets, and
+# public-action constraints; it is not canonical memory. Canonical memory lives
+# in world/.
+
+runtime:
+  harness: claude-code-vps
+  world_dir: world
+  run_artifacts_dir: world/runs
+
+cadence:
+  atlas_tick: "0 */6 * * *"
+  heartbeat: "15 */6 * * *"
+  compaction_daily: "30 5 * * *"
+  compaction_weekly: "45 5 * * 1"
+  compaction_monthly: "0 6 1 * *"
+
+budgets:
+  cognition_monthly_usd: 200
+  campaign_default_usd: 50
+  campaign_weekly_limit: 3
+  atlas_points_share_min: 0.15
+  atlas_points_share_max: 0.25
+
+looti:
+  api_base_url: https://looti.club
+  funding_mode: atlas_treasury_splits_v2
+  reward_set_limits:
+    ladder: 3
+    exploratory: 10
+  min_followers: 100
+
+publishing:
+  farcaster_replies_enabled: false
+  publish_campaign_prompts: true
+  publish_campaign_results: true
+  publish_memory_updates: true
+  publish_heartbeat: false
+
+quality:
+  score_outputs: true
+  require_campaign_attribution_for_memory: true
+  allow_autonomous_rule_mutation: false

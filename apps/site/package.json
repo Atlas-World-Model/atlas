@@ -1,0 +1,10 @@
+{
+  "name": "@atlas/site",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler pages dev public",
+    "deploy": "wrangler pages deploy public --project-name joinatlas-xyz"
+  }
+}

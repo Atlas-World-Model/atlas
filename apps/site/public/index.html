@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Atlas Is Building a World Model in Public</title>
+  <meta name="description" content="Atlas is an autonomous agent that builds shared memory from public discussion. The working group is forming now.">
+  <meta property="og:title" content="Atlas Is Building a World Model in Public">
+  <meta property="og:description" content="Atlas is an autonomous agent that builds shared memory from public discussion. The working group is forming now.">
+  <meta property="og:type" content="article">
+  <meta property="og:url" content="https://joinatlas.xyz">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Atlas Is Building a World Model in Public">
+  <meta name="twitter:description" content="Atlas is an autonomous agent that builds shared memory from public discussion. The working group is forming now.">
+  <meta property="og:image" content="https://joinatlas.xyz/img/og.png">
+  <meta name="twitter:image" content="https://joinatlas.xyz/img/og.png">
+  <link rel="icon" type="image/png" href="/img/atlas-new-icon.png">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      color-scheme: light;
+      --bg: #ffffff;
+      --text: #333333;
+      --muted: #888888;
+      --faint: #999999;
+      --strong: #1a1a1a;
+      --line: #e5e5e5;
+      --soft-line: #f0f0f0;
+      --link: #2563eb;
+      --surface: rgba(255, 255, 255, 0.86);
+      --shadow: rgba(0, 0, 0, 0.08);
+    }
+    :root[data-theme="dark"] {
+      color-scheme: dark;
+      --bg: #101114;
+      --text: #d7d9de;
+      --muted: #a1a6b0;
+      --faint: #858b96;
+      --strong: #f2f4f8;
+      --line: #2b2f36;
+      --soft-line: #242830;
+      --link: #8ab4ff;
+      --surface: rgba(16, 17, 20, 0.86);
+      --shadow: rgba(0, 0, 0, 0.36);
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.7;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .site-header {
+      position: fixed;
+      z-index: 20;
+      top: 0;
+      left: 0;
+      right: 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 18px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--soft-line);
+      backdrop-filter: blur(14px);
+    }
+
+    .icon-button,
+    .theme-toggle {
+      min-width: 42px;
+      height: 36px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: var(--bg);
+      color: var(--strong);
+      box-shadow: 0 6px 18px var(--shadow);
+      cursor: pointer;
+      font: inherit;
+      font-size: 0.875rem;
+      font-weight: 600;
+    }
+
+    .icon-button {
+      display: inline-flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      padding: 0 11px;
+    }
+
+    .icon-button span {
+      display: block;
+      width: 16px;
+      height: 2px;
+      background: var(--strong);
+      border-radius: 999px;
+    }
+
+    .site-nav {
+      position: fixed;
+      z-index: 19;
+      top: 58px;
+      left: 18px;
+      display: none;
+      min-width: 220px;
+      padding: 10px;
+      background: var(--bg);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: 0 18px 44px var(--shadow);
+    }
+
+    :root[data-menu-open="true"] .site-nav { display: grid; }
+
+    .site-nav a {
+      padding: 9px 10px;
+      border-radius: 6px;
+      color: var(--strong);
+      font-size: 0.9375rem;
+      text-decoration: none;
+    }
+
+    .site-nav a:hover {
+      background: var(--soft-line);
+      text-decoration: none;
+    }
+
+    article {
+      max-width: 640px;
+      margin: 0 auto;
+      padding: 80px 24px 120px;
+    }
+
+    h1 {
+      font-size: 2rem;
+      font-weight: 700;
+      color: var(--strong);
+      line-height: 1.2;
+      margin-bottom: 16px;
+      letter-spacing: -0.02em;
+    }
+
+    .dateline {
+      color: var(--faint);
+      font-size: 0.875rem;
+      margin-bottom: 48px;
+    }
+
+    p {
+      margin-bottom: 24px;
+      font-size: 1.0625rem;
+      color: var(--text);
+    }
+
+    h2 {
+      font-size: 1.25rem;
+      font-weight: 600;
+      color: var(--strong);
+      margin-top: 48px;
+      margin-bottom: 16px;
+    }
+
+    a {
+      color: var(--link);
+      text-decoration: none;
+    }
+
+    a:hover {
+      text-decoration: underline;
+    }
+
+    .highlight {
+      color: var(--strong);
+    }
+
+    .separator {
+      border: none;
+      border-top: 1px solid var(--line);
+      margin: 48px 0;
+    }
+
+    .links {
+      display: flex;
+      gap: 24px;
+      flex-wrap: wrap;
+      margin-top: 8px;
+    }
+
+    .links a {
+      font-size: 0.9375rem;
+      color: var(--muted);
+      transition: color 0.15s;
+    }
+
+    .links a:hover {
+      color: var(--strong);
+      text-decoration: none;
+    }
+
+    .hero-img {
+      display: block;
+      max-width: 280px;
+      margin: 0 auto 48px;
+    }
+
+    @media (max-width: 480px) {
+      article { padding: 88px 20px 80px; }
+      h1 { font-size: 1.625rem; }
+      .hero-img { max-width: 200px; }
+    }
+  </style>
+</head>
+<body>
+  <header class="site-header">
+    <button class="icon-button" type="button" data-menu-toggle aria-label="Open navigation" aria-expanded="false">
+      <span></span><span></span><span></span>
+    </button>
+    <button class="theme-toggle" type="button" data-theme-toggle aria-label="Toggle dark mode">Dark</button>
+  </header>
+  <nav class="site-nav" aria-label="Site navigation">
+    <a href="/">World Model</a>
+    <a href="/questions">Questions</a>
+    <a href="/outcomes">Outcomes</a>
+    <a href="/blog">All Articles</a>
+  </nav>
+  <article>
+    <img src="/img/atlas-holding-world-hand.png" alt="Atlas holding a world" class="hero-img">
+    <h1>Atlas Is Building a World Model in Public</h1>
+    <p class="dateline">May 19, 2026</p>
+
+    <p>
+      Atlas is an autonomous agent with one job: build a shared world model from
+      public conversation. It doesn't scrape timelines or index mentions. It will run
+      <span class="highlight">campaigns</span> — structured questions posted to
+      Farcaster — and update its memory only from the top-ranked responses.
+    </p>
+
+    <p>
+      The ranking layer is <a href="https://farcaster.xyz/miniapps/b9xYkctvKDSj/looti">Looti</a>, a protocol
+      that scores and distributes rewards to the best contributions. Atlas
+      publishes a question, Looti ranks the replies, and Atlas reviews the
+      winning set. If the evidence is strong enough, Atlas writes it into
+      durable memory. If it isn't, nothing changes.
+    </p>
+
+    <h2>Why build memory this way?</h2>
+
+    <p>
+      Most agents consume everything. Atlas consumes almost nothing. Its
+      input boundary is deliberately narrow: only Looti-ranked reward sets
+      enter the world model. This constraint is the point. It means every
+      piece of Atlas's memory traces back to a campaign, a contributor, a
+      rank, and a rationale.
+    </p>
+
+    <p>
+      The goal is not to know everything. The goal is to know things that
+      were worth paying for, contributed by people who showed up, and ranked
+      by a system that has skin in the game.
+    </p>
+
+    <h2>Forming the working group</h2>
+
+    <p>
+      We're assembling a small working group to test this thesis before the
+      first campaign goes live. The question we're starting with:
+    </p>
+
+    <p>
+      <span class="highlight"><em>Imagine you had infinite compute for an agent or
+      application — what would it do?</em></span>
+    </p>
+
+    <p>
+      The infrastructure is ready. The campaign system runs on Base with
+      ATL tokens funding Splits contracts that Looti distributes to the
+      top responses. Atlas will review the reward set, write candidate
+      memory entries, and publish what it learned.
+    </p>
+
+    <p>
+      Right now we're testing the model — making sure the loop from
+      question to ranked response to attributed memory works the way it
+      should before opening it up.
+    </p>
+
+    <h2>Who decides what Atlas works on?</h2>
+
+    <p>
+      At some point Atlas stops being a memory system and starts becoming
+      a decision-making system. The first decision it needs to make is
+      what problem it wants to solve — and that's not up to any one person.
+    </p>
+
+    <p>
+      The community decides. It's the only way the project becomes
+      sufficiently decentralized for others to have a real stake in
+      its outcome. Atlas's direction comes from the people who show up,
+      contribute ranked evidence, and shape the world model through
+      participation.
+    </p>
+
+    <h2>What we're actually testing</h2>
+
+    <p>
+      We don't know if this works yet. That's the point of running it
+      in public.
+    </p>
+
+    <p>
+      The core question is whether a narrow, incentivized input boundary
+      produces a world model that's actually useful — or whether it just
+      produces a world model. There's a difference. Useful means someone
+      other than Atlas cares what's in it: other agents querying it,
+      communities referencing it, people following it because watching
+      an AI figure things out in public is genuinely interesting.
+    </p>
+
+    <p>
+      We think the campaign format itself might be worth watching.
+      A good question drops, people compete to give the best answer,
+      the ranking plays out, Atlas updates its memory. Each campaign
+      is a small episode. The world model evolving over time is the
+      arc. If the questions are good enough, this becomes something
+      people follow — not just infrastructure.
+    </p>
+
+    <p>
+      If the world model does become valuable, there are real things
+      that can grow from it: other agents paying to read Atlas's
+      memory, third parties funding campaigns on topics they care
+      about, the ranked reward sets themselves becoming a signal that
+      other systems use. But none of that matters if the loop doesn't
+      produce knowledge worth having.
+    </p>
+
+    <p>
+      So that's where we are. Small treasury, small group, one
+      question at a time. If the first campaign produces something
+      Atlas couldn't have known without asking — something that came
+      from the people who showed up — then the experiment is working.
+    </p>
+
+    <p>
+      <strong>Next:</strong> <a href="/questions">Atlas Is Learning Which Questions Are Worth Asking</a>
+    </p>
+
+    <hr class="separator">
+
+    <div class="links">
+      <a href="/blog">All Articles</a>
+      <a href="https://farcaster.xyz/atlas">Atlas on Farcaster</a>
+      <a href="https://farcaster.xyz/miniapps/b9xYkctvKDSj/looti">Looti</a>
+      <button class="theme-toggle" type="button" data-theme-toggle aria-label="Toggle dark mode">Dark</button>
+    </div>
+  </article>
+  <script src="/theme.js"></script>
+  <script src="/nav.js"></script>
+</body>
+</html>

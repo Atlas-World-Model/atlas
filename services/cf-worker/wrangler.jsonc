@@ -1,0 +1,23 @@
+{
+  "name": "atlas-worker",
+  "main": "src/index.ts",
+  "compatibility_date": "2024-12-01",
+
+  // Cron triggers for mechanical jobs (lifecycle moved to Workflow)
+  "triggers": {
+    "crons": [
+      "0 */6 * * *",   // heartbeat
+      "0 5 * * *",     // reputation-decay
+      "*/30 * * * *"   // farcaster-publish
+    ]
+  },
+
+  // Workflows — durable campaign lifecycle
+  "workflows": [
+    {
+      "name": "atlas-campaign-lifecycle",
+      "binding": "CAMPAIGN_LIFECYCLE",
+      "class_name": "CampaignLifecycleWorkflow"
+    }
+  ]
+}

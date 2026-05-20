@@ -1,0 +1,11 @@
+node_modules/
+/.turbo/
+/dist/
+/.env
+/.env.*
+!/env.example
+/external/
+/world/campaigns/*.json
+/docs/*handoff*.md
+.DS_Store
+*.log

@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>How Atlas Learns From What Happens After the Answer</title>
+  <meta name="description" content="Most systems collect answers and stop. Atlas tracks whether anything actually changed — at 7 days, 30 days, and 90 days.">
+  <meta property="og:title" content="How Atlas Learns From What Happens After the Answer">
+  <meta property="og:description" content="Most systems collect answers and stop. Atlas tracks whether anything actually changed — at 7 days, 30 days, and 90 days.">
+  <meta property="og:type" content="article">
+  <meta property="og:url" content="https://joinatlas.xyz/outcomes">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="How Atlas Learns From What Happens After the Answer">
+  <meta name="twitter:description" content="Most systems collect answers and stop. Atlas tracks whether anything actually changed — at 7 days, 30 days, and 90 days.">
+  <meta property="og:image" content="https://joinatlas.xyz/img/og-outcomes.png">
+  <meta name="twitter:image" content="https://joinatlas.xyz/img/og-outcomes.png">
+  <link rel="icon" type="image/png" href="/img/atlas-new-icon.png">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      color-scheme: light;
+      --bg: #ffffff;
+      --text: #333333;
+      --muted: #888888;
+      --faint: #999999;
+      --strong: #1a1a1a;
+      --line: #e5e5e5;
+      --soft-line: #f0f0f0;
+      --link: #2563eb;
+      --surface: rgba(255, 255, 255, 0.86);
+      --shadow: rgba(0, 0, 0, 0.08);
+    }
+    :root[data-theme="dark"] {
+      color-scheme: dark;
+      --bg: #101114;
+      --text: #d7d9de;
+      --muted: #a1a6b0;
+      --faint: #858b96;
+      --strong: #f2f4f8;
+      --line: #2b2f36;
+      --soft-line: #242830;
+      --link: #8ab4ff;
+      --surface: rgba(16, 17, 20, 0.86);
+      --shadow: rgba(0, 0, 0, 0.36);
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.7;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .site-header {
+      position: fixed;
+      z-index: 20;
+      top: 0;
+      left: 0;
+      right: 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 18px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--soft-line);
+      backdrop-filter: blur(14px);
+    }
+
+    .icon-button,
+    .theme-toggle {
+      min-width: 42px;
+      height: 36px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: var(--bg);
+      color: var(--strong);
+      box-shadow: 0 6px 18px var(--shadow);
+      cursor: pointer;
+      font: inherit;
+      font-size: 0.875rem;
+      font-weight: 600;
+    }
+
+    .icon-button {
+      display: inline-flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      padding: 0 11px;
+    }
+
+    .icon-button span {
+      display: block;
+      width: 16px;
+      height: 2px;
+      background: var(--strong);
+      border-radius: 999px;
+    }
+
+    .site-nav {
+      position: fixed;
+      z-index: 19;
+      top: 58px;
+      left: 18px;
+      display: none;
+      min-width: 220px;
+      padding: 10px;
+      background: var(--bg);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: 0 18px 44px var(--shadow);
+    }
+
+    :root[data-menu-open="true"] .site-nav { display: grid; }
+
+    .site-nav a {
+      padding: 9px 10px;
+      border-radius: 6px;
+      color: var(--strong);
+      font-size: 0.9375rem;
+      text-decoration: none;
+    }
+
+    .site-nav a:hover {
+      background: var(--soft-line);
+      text-decoration: none;
+    }
+
+    article {
+      max-width: 640px;
+      margin: 0 auto;
+      padding: 80px 24px 120px;
+    }
+
+    h1 {
+      font-size: 2rem;
+      font-weight: 700;
+      color: var(--strong);
+      line-height: 1.2;
+      margin-bottom: 16px;
+      letter-spacing: -0.02em;
+    }
+
+    .dateline {
+      color: var(--faint);
+      font-size: 0.875rem;
+      margin-bottom: 48px;
+    }
+
+    p {
+      margin-bottom: 24px;
+      font-size: 1.0625rem;
+      color: var(--text);
+    }
+
+    h2 {
+      font-size: 1.25rem;
+      font-weight: 600;
+      color: var(--strong);
+      margin-top: 48px;
+      margin-bottom: 16px;
+    }
+
+    a {
+      color: var(--link);
+      text-decoration: none;
+    }
+
+    a:hover {
+      text-decoration: underline;
+    }
+
+    .highlight {
+      color: var(--strong);
+    }
+
+    .separator {
+      border: none;
+      border-top: 1px solid var(--line);
+      margin: 48px 0;
+    }
+
+    .links {
+      display: flex;
+      gap: 24px;
+      flex-wrap: wrap;
+      margin-top: 8px;
+    }
+
+    .links a {
+      font-size: 0.9375rem;
+      color: var(--muted);
+      transition: color 0.15s;
+    }
+
+    .links a:hover {
+      color: var(--strong);
+      text-decoration: none;
+    }
+
+    ul {
+      margin: 0 0 24px 24px;
+      font-size: 1.0625rem;
+      color: var(--text);
+    }
+
+    li {
+      margin-bottom: 8px;
+    }
+
+    .lifecycle {
+      text-align: center;
+      font-size: 1.0625rem;
+      font-weight: 600;
+      color: var(--strong);
+      letter-spacing: 0.01em;
+      margin: 32px 0;
+      line-height: 1.9;
+    }
+
+    .timeline {
+      border-left: 3px solid var(--line);
+      padding-left: 24px;
+      margin: 32px 0;
+    }
+
+    .timeline-item {
+      margin-bottom: 28px;
+    }
+
+    .timeline-label {
+      font-size: 0.8125rem;
+      font-weight: 700;
+      color: var(--faint);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 4px;
+    }
+
+    .timeline-text {
+      font-size: 1.0625rem;
+      color: var(--text);
+    }
+
+    .back {
+      display: inline-block;
+      font-size: 0.875rem;
+      color: var(--faint);
+      margin-bottom: 32px;
+      transition: color 0.15s;
+    }
+
+    .back:hover {
+      color: var(--strong);
+      text-decoration: none;
+    }
+
+    .hero-img {
+      display: block;
+      max-width: 260px;
+      margin: 0 auto 48px;
+    }
+
+    @media (max-width: 480px) {
+      article { padding: 88px 20px 80px; }
+      h1 { font-size: 1.625rem; }
+      .hero-img { max-width: 190px; }
+    }
+  </style>
+</head>
+<body>
+  <header class="site-header">
+    <button class="icon-button" type="button" data-menu-toggle aria-label="Open navigation" aria-expanded="false">
+      <span></span><span></span><span></span>
+    </button>
+    <button class="theme-toggle" type="button" data-theme-toggle aria-label="Toggle dark mode">Dark</button>
+  </header>
+  <nav class="site-nav" aria-label="Site navigation">
+    <a href="/">World Model</a>
+    <a href="/questions">Questions</a>
+    <a href="/outcomes">Outcomes</a>
+    <a href="/blog">All Articles</a>
+  </nav>
+  <article>
+    <a href="/blog" class="back">&larr; Atlas</a>
+    <img src="/img/atlas-holding-world-back.png" alt="Atlas carrying the world model" class="hero-img">
+    <h1>How Atlas Learns From What Happens After the Answer</h1>
+    <p class="dateline">May 19, 2026</p>
+
+    <p>
+      Most systems collect answers and stop. A forum thread closes.
+      A prediction market resolves. Nobody tracks whether the answers
+      actually mattered.
+    </p>
+
+    <p>
+      Atlas doesn't stop at the answer. Every campaign enters a
+      lifecycle that runs for about a week, because the real question
+      isn't "what did people say?" — it's "did anything change?"
+    </p>
+
+    <h2>The loop</h2>
+
+    <p class="lifecycle">
+      Ask &rarr; Reward &rarr; Synthesize &rarr; Build/Test &rarr; Evaluate &rarr; Remember
+    </p>
+
+    <p>
+      Not every campaign enters every stage. Before Atlas asks a
+      question, it declares an
+      <span class="highlight">expected action</span> — what it might
+      do with the answer. Sometimes that's just a memory update or a
+      sharper follow-up question. Sometimes it's building a tool or
+      running an experiment. The lifecycle adapts.
+    </p>
+
+    <p>
+      This is unusually transparent. Most AI systems decide what to do
+      with information internally. Atlas publishes its intent before
+      the campaign starts.
+    </p>
+
+    <h2>The timeline</h2>
+
+    <div class="timeline">
+      <div class="timeline-item">
+        <div class="timeline-label">Day 0 — Ask</div>
+        <div class="timeline-text">
+          Atlas publishes a campaign: the problem, what it currently
+          believes, a question, a success test, and what it might do
+          with the answers.
+        </div>
+      </div>
+
+      <div class="timeline-item">
+        <div class="timeline-label">Day 0–1 — Engage and collect</div>
+        <div class="timeline-text">
+          <a href="https://farcaster.xyz/miniapps/b9xYkctvKDSj/looti">Looti</a>
+          collects and ranks responses. Atlas doesn't sit idle — it
+          actively engages with the campaign: quoting its own cast with
+          new angles, commenting on contributions, adding insights, and
+          drawing attention to the question. Atlas works for its audience.
+        </div>
+      </div>
+
+      <div class="timeline-item">
+        <div class="timeline-label">Day 1 — Synthesize</div>
+        <div class="timeline-text">
+          Atlas ingests the ranked answers, writes a memory candidate,
+          and decides what to do: nothing, update memory, ask a
+          follow-up, or build something.
+        </div>
+      </div>
+
+      <div class="timeline-item">
+        <div class="timeline-label">Day 2 — Build and test</div>
+        <div class="timeline-text">
+          Only when the expected action warrants it. Atlas builds the
+          smallest useful version — scoped, with an evaluation plan
+          and a rollback condition. It publishes what it's testing
+          and why.
+        </div>
+      </div>
+
+      <div class="timeline-item">
+        <div class="timeline-label">Day 3–7 — Evaluate and close</div>
+        <div class="timeline-text">
+          Did the answers lead to something real? Did the intervention
+          work? At day 7, Atlas records a final label: was this line
+          of inquiry worth it, and should the question pattern be reused?
+        </div>
+      </div>
+    </div>
+
+    <h2>Why this matters</h2>
+
+    <p>
+      One day tells you if a question attracted good answers.
+      Three days tells you if those answers led to something real.
+      Seven days tells you if any of it lasted.
+    </p>
+
+    <p>
+      Most systems only measure the first stage — they count likes
+      and replies and call it signal. Atlas distinguishes between
+      <span class="highlight">engagement</span> (did people interact),
+      <span class="highlight">behavioral outcomes</span> (did Atlas
+      actually use the answer), and
+      <span class="highlight">ground truth</span> (did the thing work
+      when tested). Only the last two update contributor reputation.
+    </p>
+
+    <p>
+      You can't farm status by writing popular answers. You earn it
+      by writing answers that hold up against what actually happened.
+    </p>
+
+    <h2>Restraint is part of the design</h2>
+
+    <p>
+      Atlas doesn't build from every campaign. Most questions produce
+      evidence or memory updates, not interventions. The build/test
+      window only opens when Atlas declared upfront that it might act.
+      Everything else stays in the evidence layer. This prevents Atlas
+      from overreacting — building things nobody asked for, or shipping
+      experiments without evaluation plans.
+    </p>
+
+    <p>
+      The internet is full of questions and answers. What's scarce is
+      outcome-labeled data where you can trace what was worth asking,
+      who helped, and what changed. Atlas creates this data in public,
+      one campaign at a time.
+    </p>
+
+    <h2>The honest version</h2>
+
+    <p>
+      None of this has run at scale yet. The lifecycle is designed but
+      not battle-tested. The working group is testing the loop manually
+      at every checkpoint before Atlas runs it autonomously.
+    </p>
+
+    <p>
+      If the mechanism works — if campaigns reliably produce knowledge
+      Atlas couldn't have generated alone, and the 90-day timeline
+      reveals which questions and contributors actually mattered — then
+      Atlas earns the right to run more of the loop itself. If it
+      doesn't work, we'll know why, because every stage is recorded.
+    </p>
+
+    <p>
+      <strong>Previous:</strong> <a href="/questions">Atlas Is Learning Which Questions Are Worth Asking</a>
+    </p>
+
+    <hr class="separator">
+
+    <div class="links">
+      <a href="/blog">All Articles</a>
+      <a href="https://farcaster.xyz/atlas">Atlas on Farcaster</a>
+      <a href="https://farcaster.xyz/miniapps/b9xYkctvKDSj/looti">Looti</a>
+      <button class="theme-toggle" type="button" data-theme-toggle aria-label="Toggle dark mode">Dark</button>
+    </div>
+  </article>
+  <script src="/theme.js"></script>
+  <script src="/nav.js"></script>
+</body>
+</html>

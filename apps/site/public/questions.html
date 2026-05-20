@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Atlas Is Learning Which Questions Are Worth Asking</title>
+  <meta name="description" content="Most AI systems compete to answer questions. Atlas starts one step earlier: learning which questions produce useful human input and durable world-model updates.">
+  <meta property="og:title" content="Atlas Is Learning Which Questions Are Worth Asking">
+  <meta property="og:description" content="Most AI systems compete to answer questions. Atlas starts one step earlier: learning which questions produce useful human input and durable world-model updates.">
+  <meta property="og:type" content="article">
+  <meta property="og:url" content="https://joinatlas.xyz/questions">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Atlas Is Learning Which Questions Are Worth Asking">
+  <meta name="twitter:description" content="Most AI systems compete to answer questions. Atlas starts one step earlier: learning which questions produce useful human input and durable world-model updates.">
+  <meta property="og:image" content="https://joinatlas.xyz/img/og-questions.png">
+  <meta name="twitter:image" content="https://joinatlas.xyz/img/og-questions.png">
+  <link rel="icon" type="image/png" href="/img/atlas-new-icon.png">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      color-scheme: light;
+      --bg: #ffffff;
+      --text: #333333;
+      --muted: #888888;
+      --faint: #999999;
+      --strong: #1a1a1a;
+      --line: #e5e5e5;
+      --soft-line: #f0f0f0;
+      --link: #2563eb;
+      --surface: rgba(255, 255, 255, 0.86);
+      --shadow: rgba(0, 0, 0, 0.08);
+    }
+    :root[data-theme="dark"] {
+      color-scheme: dark;
+      --bg: #101114;
+      --text: #d7d9de;
+      --muted: #a1a6b0;
+      --faint: #858b96;
+      --strong: #f2f4f8;
+      --line: #2b2f36;
+      --soft-line: #242830;
+      --link: #8ab4ff;
+      --surface: rgba(16, 17, 20, 0.86);
+      --shadow: rgba(0, 0, 0, 0.36);
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.7;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .site-header {
+      position: fixed;
+      z-index: 20;
+      top: 0;
+      left: 0;
+      right: 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 18px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--soft-line);
+      backdrop-filter: blur(14px);
+    }
+
+    .icon-button,
+    .theme-toggle {
+      min-width: 42px;
+      height: 36px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: var(--bg);
+      color: var(--strong);
+      box-shadow: 0 6px 18px var(--shadow);
+      cursor: pointer;
+      font: inherit;
+      font-size: 0.875rem;
+      font-weight: 600;
+    }
+
+    .icon-button {
+      display: inline-flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      padding: 0 11px;
+    }
+
+    .icon-button span {
+      display: block;
+      width: 16px;
+      height: 2px;
+      background: var(--strong);
+      border-radius: 999px;
+    }
+
+    .site-nav {
+      position: fixed;
+      z-index: 19;
+      top: 58px;
+      left: 18px;
+      display: none;
+      min-width: 220px;
+      padding: 10px;
+      background: var(--bg);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: 0 18px 44px var(--shadow);
+    }
+
+    :root[data-menu-open="true"] .site-nav { display: grid; }
+
+    .site-nav a {
+      padding: 9px 10px;
+      border-radius: 6px;
+      color: var(--strong);
+      font-size: 0.9375rem;
+      text-decoration: none;
+    }
+
+    .site-nav a:hover {
+      background: var(--soft-line);
+      text-decoration: none;
+    }
+
+    article {
+      max-width: 640px;
+      margin: 0 auto;
+      padding: 80px 24px 120px;
+    }
+
+    h1 {
+      font-size: 2rem;
+      font-weight: 700;
+      color: var(--strong);
+      line-height: 1.2;
+      margin-bottom: 16px;
+      letter-spacing: -0.02em;
+    }
+
+    .dateline {
+      color: var(--faint);
+      font-size: 0.875rem;
+      margin-bottom: 48px;
+    }
+
+    p {
+      margin-bottom: 24px;
+      font-size: 1.0625rem;
+      color: var(--text);
+    }
+
+    h2 {
+      font-size: 1.25rem;
+      font-weight: 600;
+      color: var(--strong);
+      margin-top: 48px;
+      margin-bottom: 16px;
+    }
+
+    a {
+      color: var(--link);
+      text-decoration: none;
+    }
+
+    a:hover {
+      text-decoration: underline;
+    }
+
+    .highlight {
+      color: var(--strong);
+    }
+
+    .separator {
+      border: none;
+      border-top: 1px solid var(--line);
+      margin: 48px 0;
+    }
+
+    .links {
+      display: flex;
+      gap: 24px;
+      flex-wrap: wrap;
+      margin-top: 8px;
+    }
+
+    .links a {
+      font-size: 0.9375rem;
+      color: var(--muted);
+      transition: color 0.15s;
+    }
+
+    .links a:hover {
+      color: var(--strong);
+      text-decoration: none;
+    }
+
+    ul {
+      margin: 0 0 24px 24px;
+      font-size: 1.0625rem;
+      color: var(--text);
+    }
+
+    li {
+      margin-bottom: 8px;
+    }
+
+    .triplet {
+      text-align: center;
+      font-size: 1.125rem;
+      font-weight: 600;
+      color: var(--strong);
+      letter-spacing: 0.02em;
+      margin: 32px 0;
+    }
+
+    .back {
+      display: inline-block;
+      font-size: 0.875rem;
+      color: var(--faint);
+      margin-bottom: 32px;
+      transition: color 0.15s;
+    }
+
+    .back:hover {
+      color: var(--strong);
+      text-decoration: none;
+    }
+
+    .hero-img {
+      display: block;
+      max-width: 240px;
+      margin: 0 auto 48px;
+    }
+
+    @media (max-width: 480px) {
+      article { padding: 88px 20px 80px; }
+      h1 { font-size: 1.625rem; }
+      .hero-img { max-width: 180px; }
+    }
+  </style>
+</head>
+<body>
+  <header class="site-header">
+    <button class="icon-button" type="button" data-menu-toggle aria-label="Open navigation" aria-expanded="false">
+      <span></span><span></span><span></span>
+    </button>
+    <button class="theme-toggle" type="button" data-theme-toggle aria-label="Toggle dark mode">Dark</button>
+  </header>
+  <nav class="site-nav" aria-label="Site navigation">
+    <a href="/">World Model</a>
+    <a href="/questions">Questions</a>
+    <a href="/outcomes">Outcomes</a>
+    <a href="/blog">All Articles</a>
+  </nav>
+  <article>
+    <a href="/" class="back">&larr; Atlas</a>
+    <img src="/img/atlas-juggling.png" alt="Atlas juggling questions" class="hero-img">
+    <h1>Atlas Is Learning Which Questions Are Worth Asking</h1>
+    <p class="dateline">May 19, 2026</p>
+
+    <p>
+      Most AI systems optimize for answers. Better models, faster
+      inference, longer context — all in service of producing a
+      response to whatever question arrives.
+    </p>
+
+    <p>
+      Atlas starts one layer earlier. Before you can build a useful
+      world model, you have to figure out which questions are worth
+      asking in the first place.
+    </p>
+
+    <h2>Why question selection matters</h2>
+
+    <p>
+      A bad question produces data that looks useful but isn't.
+      It confirms what you already know, attracts generic answers,
+      or resolves without changing anything. A good question creates
+      information that didn't exist before and that Atlas can act on.
+    </p>
+
+    <p>
+      A good Atlas question has:
+    </p>
+
+    <ul>
+      <li>A <span class="highlight">problem</span> — something Atlas doesn't understand well enough</li>
+      <li>A <span class="highlight">current belief</span> — what Atlas thinks now, so answers can challenge it</li>
+      <li>A <span class="highlight">success test</span> — how to tell if the answers were useful</li>
+      <li>A <span class="highlight">reason human input matters</span> — why Atlas can't figure this out alone</li>
+      <li>A <span class="highlight">path to behavior change</span> — how a good answer would change what Atlas does next</li>
+    </ul>
+
+    <p>
+      If a question doesn't have most of these, it's probably not
+      worth funding a campaign around.
+    </p>
+
+    <h2>Prediction is only one kind of question</h2>
+
+    <p>
+      Prediction markets have shown that structured questions with
+      real stakes produce better forecasts. Atlas borrows that
+      insight — campaigns have real token rewards — but prediction
+      is too narrow for what Atlas needs.
+    </p>
+
+    <p>
+      Atlas also needs to ask:
+    </p>
+
+    <ul>
+      <li><span class="highlight">Decision questions</span> — what should Atlas do next?</li>
+      <li><span class="highlight">Diagnostic questions</span> — why did something work or fail?</li>
+      <li><span class="highlight">Procedural questions</span> — how should a process be designed?</li>
+      <li><span class="highlight">Evaluation questions</span> — was this outcome good enough?</li>
+      <li><span class="highlight">Question-generation questions</span> — what should Atlas ask next?</li>
+    </ul>
+
+    <p>
+      That last one is the most interesting. Atlas can run campaigns
+      where the question is literally "what question should I ask?"
+      — using the community to improve its own question selection
+      over time.
+    </p>
+
+    <h2>The learning loop</h2>
+
+    <p class="triplet">Question &rarr; Answer &rarr; Outcome</p>
+
+    <p>
+      Every Atlas campaign produces a triplet. The question gets
+      asked, ranked answers come back through
+      <a href="https://farcaster.xyz/miniapps/b9xYkctvKDSj/looti">Looti</a>,
+      and Atlas observes what happens afterward. Atlas learns from
+      all three parts:
+    </p>
+
+    <ul>
+      <li><span class="highlight">Was this worth asking?</span> Did the answers
+        produce information Atlas didn't already have?</li>
+      <li><span class="highlight">Who helped answer it?</span> Which contributors
+        consistently produce evidence that holds up?</li>
+      <li><span class="highlight">Did anything change?</span> Did Atlas's
+        behavior, memory, or next question actually shift because
+        of what it learned?</li>
+    </ul>
+
+    <p>
+      If a question produces great answers but nothing changes,
+      the question wasn't actionable. If a question changes Atlas's
+      behavior but the answers were weak, Atlas got lucky or made a
+      mistake. The loop only works when all three parts connect.
+    </p>
+
+    <h2>What Atlas is learning to do</h2>
+
+    <p>
+      Over time, the triplet compounds. Atlas doesn't just accumulate
+      facts — it develops judgment about its own process. Eventually
+      it should learn:
+    </p>
+
+    <ul>
+      <li><span class="highlight">What to ask</span> — which questions produce the most useful responses</li>
+      <li><span class="highlight">Who to ask</span> — which contributors are reliable in which domains</li>
+      <li><span class="highlight">What to trust</span> — which answers hold up when tested against outcomes</li>
+      <li><span class="highlight">What to remember</span> — which evidence is durable enough for the world model</li>
+      <li><span class="highlight">What to build</span> — which actions are worth taking based on what it knows</li>
+    </ul>
+
+    <p>
+      That's the progression from memory system to decision-making
+      system. It doesn't happen by flipping a switch. It happens by
+      running enough campaigns that Atlas starts to see patterns in
+      which questions led to real outcomes.
+    </p>
+
+    <h2>Help Atlas ask better questions</h2>
+
+    <p>
+      Atlas campaigns are open. When you participate, you're not
+      just answering a question — you're training Atlas's judgment
+      about what's worth asking, who to listen to, and what to
+      remember. Contributors earn ATL tokens and Looti points, and
+      the best answers shape the world model directly.
+    </p>
+
+    <p>
+      Follow <a href="https://farcaster.xyz/atlas">Atlas on Farcaster</a>
+      for campaign announcements. The next question is coming.
+    </p>
+
+    <p>
+      <strong>Next:</strong> <a href="/outcomes">How Atlas Learns From What Happens After the Answer</a>
+    </p>
+
+    <hr class="separator">
+
+    <div class="links">
+      <a href="/blog">All Articles</a>
+      <a href="https://farcaster.xyz/atlas">Atlas on Farcaster</a>
+      <a href="https://farcaster.xyz/miniapps/b9xYkctvKDSj/looti">Looti</a>
+      <button class="theme-toggle" type="button" data-theme-toggle aria-label="Toggle dark mode">Dark</button>
+    </div>
+  </article>
+  <script src="/theme.js"></script>
+  <script src="/nav.js"></script>
+</body>
+</html>
