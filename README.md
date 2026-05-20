@@ -22,110 +22,86 @@ Every piece of Atlas's memory traces back to a campaign, a contributor, a rank, 
 
 ## How It Works
 
+```mermaid
+graph LR
+    A["Atlas Asks"] --> B["Farcaster Collects"]
+    B --> C["Looti Ranks"]
+    C --> D["Atlas Learns"]
+    D -->|"World Model Updates"| A
+
+    style A fill:#f9f9f9,stroke:#333,color:#1a1a1a
+    style B fill:#f9f9f9,stroke:#333,color:#1a1a1a
+    style C fill:#f9f9f9,stroke:#333,color:#1a1a1a
+    style D fill:#f9f9f9,stroke:#333,color:#1a1a1a
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                      ATLAS CAMPAIGN LOOP                        │
-│                                                                 │
-│   ┌─────────┐    ┌──────────┐    ┌────────────┐    ┌────────┐  │
-│   │  Atlas   │───▶│ Farcaster │───▶│   Looti    │───▶│ Atlas  │  │
-│   │  Asks    │    │  Collects │    │   Ranks    │    │ Learns │  │
-│   └─────────┘    └──────────┘    └────────────┘    └────────┘  │
-│        │                                                │       │
-│        │         Question → Answer → Outcome            │       │
-│        │                                                │       │
-│        └────────────────────────────────────────────────┘       │
-│                     World Model Updates                         │
-└─────────────────────────────────────────────────────────────────┘
-```
+
+**Question → Answer → Outcome.** Atlas learns from all three.
 
 ## Campaign Lifecycle
 
 Each campaign runs a 7-day durable lifecycle as a Cloudflare Workflow:
 
-```
-Day 0                    Day 1           Day 2          Day 3         Day 7
-  │                        │               │              │             │
-  ▼                        ▼               ▼              ▼             ▼
-┌──────┐  ┌────────────┐  ┌───────────┐  ┌──────────┐  ┌──────────┐  ┌──────┐
-│ Ask  │──│  Engage &   │──│Synthesize │──│Build/Test│──│ Evaluate │──│Close │
-│      │  │  Collect    │  │           │  │(if build)│  │          │  │      │
-└──────┘  └────────────┘  └───────────┘  └──────────┘  └──────────┘  └──────┘
-              │                │                            │
-              │  Atlas engages │  Claude Code               │  Was this
-              │  every 4 hours │  reviews ranked             │  worth asking?
-              │  with ranked   │  answers + decides          │
-              │  contributors  │  next action                │
-              │                │                            │
-              ▼                ▼                            ▼
-         ┌─────────┐    ┌──────────┐                 ┌──────────┐
-         │ Replies  │    │ Memory   │                 │Reputation│
-         │ Quotes   │    │ Update   │                 │ Update   │
-         │ Insights │    │ or Build │                 │          │
-         └─────────┘    └──────────┘                 └──────────┘
+```mermaid
+graph TD
+    subgraph "Day 0"
+        ASK["Ask"]
+    end
+    subgraph "Day 0–1"
+        ENGAGE["Engage & Collect"]
+    end
+    subgraph "Day 1"
+        SYNTH["Synthesize"]
+    end
+    subgraph "Day 2"
+        BUILD["Build / Test"]
+    end
+    subgraph "Day 3"
+        EVAL["Evaluate"]
+    end
+    subgraph "Day 7"
+        CLOSE["Close"]
+    end
+
+    ASK --> ENGAGE
+    ENGAGE --> SYNTH
+    SYNTH -->|"build action"| BUILD
+    SYNTH -->|"no build"| EVAL
+    BUILD --> EVAL
+    EVAL --> CLOSE
+
+    ENGAGE -.- E1["Replies to ranked contributors\nevery 4 hours"]
+    SYNTH -.- E2["Claude Code reviews answers\nand decides next action"]
+    EVAL -.- E3["Was this worth asking?\nReputation updates"]
 ```
 
 During collection, Atlas doesn't sit idle. It actively engages — replying to ranked contributors, quoting its own cast with new angles, and adding commentary. Atlas works for its attention.
 
 ## Architecture
 
-```
-                    ┌──────────────────────────────────┐
-                    │         Farcaster / Looti         │
-                    └──────────┬───────────────────────┘
-                               │
-                    Neynar Webhook (cast.created)
-                               │
-                               ▼
-┌──────────────────────────────────────────────────────────────────┐
-│                     api.joinatlas.xyz (VPS)                       │
-│                                                                  │
-│  ┌──────────────┐   ┌──────────────┐   ┌──────────────────────┐ │
-│  │   Webhook    │──▶│  Atlas Brain  │──▶│    Claude Code        │ │
-│  │   Server     │   │  (reasoning)  │   │    (thinking layer)   │ │
-│  │  (Bun:3141)  │   │              │   │                      │ │
-│  └──────────────┘   └──────┬───────┘   └──────────────────────┘ │
-│                            │                                     │
-│                    ┌───────▼────────┐                            │
-│                    │  KG Pipeline   │                            │
-│                    │ (contributor   │                            │
-│                    │  profiling)    │                            │
-│                    │  (uvicorn:8200)│                            │
-│                    └────────────────┘                            │
-└──────────────────────────────────────────────────────────────────┘
-                               │
-                               │ Brain API
-                               │
-┌──────────────────────────────────────────────────────────────────┐
-│                   Cloudflare (mechanical layer)                  │
-│                                                                  │
-│  ┌──────────────┐   ┌──────────────────────────────────────────┐│
-│  │   Worker      │   │          Workflow (per campaign)          ││
-│  │              │   │                                          ││
-│  │  Crons:      │   │  Day 0: collect → engage every 4h       ││
-│  │  - heartbeat │   │  Day 1: synthesize (→ brain API)        ││
-│  │  - rep decay │   │  Day 2: build/test (if applicable)      ││
-│  │  - publish   │   │  Day 3: evaluate (→ brain API)          ││
-│  │              │   │  Day 7: final label + close (→ brain)   ││
-│  └──────────────┘   └──────────────────────────────────────────┘│
-└──────────────────────────────────────────────────────────────────┘
-                               │
-                               ▼
-                    ┌──────────────────┐
-                    │  Supabase (DB)   │
-                    │                  │
-                    │  12 tables:      │
-                    │  questions       │
-                    │  answers         │
-                    │  claims          │
-                    │  outcomes        │
-                    │  contributors    │
-                    │  reputation      │
-                    │  campaign_runs   │
-                    │  interventions   │
-                    │  outcome_checks  │
-                    │  context_snapshots│
-                    │  audit_log       │
-                    └──────────────────┘
+```mermaid
+graph TB
+    FC["Farcaster / Looti"] -->|"Neynar webhook"| VPS
+
+    subgraph VPS["api.joinatlas.xyz"]
+        WH["Webhook Server\n(Bun)"] --> BRAIN["Atlas Brain"]
+        BRAIN --> CLAUDE["Claude Code\n(reasoning)"]
+        BRAIN --> KG["KG Pipeline\n(contributor profiling)"]
+    end
+
+    subgraph CF["Cloudflare"]
+        WORKER["Worker\n(crons: heartbeat,\nrep decay, publish)"]
+        WF["Workflow\n(per-campaign lifecycle)"]
+    end
+
+    CF -->|"Brain API\n(reasoning needed)"| VPS
+    VPS --> DB
+    CF --> DB
+
+    DB[("Supabase\n12 tables")]
+
+    style VPS fill:#f0f4ff,stroke:#2563eb,color:#1a1a1a
+    style CF fill:#fff4e6,stroke:#f59e0b,color:#1a1a1a
+    style DB fill:#f0fdf4,stroke:#22c55e,color:#1a1a1a
 ```
 
 **Design principle:** cheap mechanical work runs on Cloudflare. Expensive reasoning (Claude Code) runs on the VPS, only when judgment is needed.
@@ -134,25 +110,16 @@ During collection, Atlas doesn't sit idle. It actively engages — replying to r
 
 Contributors earn reputation from **outcomes**, not engagement.
 
-```
-                  Engagement          Behavioral         Ground Truth
-                  (likes, replies)    (Atlas used it)    (it held up)
-                       │                   │                  │
-                       ▼                   ▼                  ▼
-                   ┌────────┐         ┌────────┐         ┌────────┐
-                   │ Logged │         │Weight 1│         │Weight 2│
-                   │  only  │         │        │         │        │
-                   └────────┘         └────┬───┘         └────┬───┘
-                                          │                   │
-                                          └───────┬───────────┘
-                                                  │
-                                                  ▼
-                                          ┌──────────────┐
-                                          │  Reputation   │
-                                          │  per-domain   │
-                                          │  time-decayed │
-                                          │  (180d half)  │
-                                          └──────────────┘
+```mermaid
+graph TD
+    E["Engagement\n(likes, replies)"] --> L["Logged only"]
+    B["Behavioral\n(Atlas used it)"] -->|"weight 1"| R
+    G["Ground Truth\n(it held up)"] -->|"weight 2"| R
+
+    R["Reputation\nper-domain, time-decayed\n(180-day half-life)"]
+
+    style L fill:#fef2f2,stroke:#ef4444,color:#1a1a1a
+    style R fill:#f0fdf4,stroke:#22c55e,color:#1a1a1a
 ```
 
 A popular answer can be wrong. An unpopular answer can be the one that changes everything. Atlas only updates reputation from behavioral and ground-truth tiers.
