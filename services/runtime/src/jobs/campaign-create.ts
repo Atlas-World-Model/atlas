@@ -21,10 +21,11 @@
  */
 
 import { execFile } from "child_process";
-import { getDb, questions, createId } from "../../../../packages/db/src/index.js";
+import { getDb, questions, campaignRuns, createId } from "../../../../packages/db/src/index.js";
 import { initCampaignRun } from "../../../../packages/agent/src/index.js";
 import type { CampaignBrief } from "../../../../packages/agent/src/index.js";
 import { invokeClaudeCode } from "../claude.js";
+import { and, eq, gte, isNotNull } from "drizzle-orm";
 
 const ATLAS_DIR = process.env.ATLAS_DIR || "/opt/atlas";
 const NEYNAR_API_BASE = "https://api.neynar.com/v2";
@@ -64,19 +65,78 @@ export async function proposeCampaign(
 
   console.log(`[campaign-create] Proposing: "${proposal.question}"`);
 
-  // Step 1: Cast the question to Farcaster
-  const castText = renderCastText(proposal);
-  let castHash: string;
+  const db = getDb();
 
-  try {
-    castHash = await publishCast(apiKey, signerUuid, castText);
-    console.log(`[campaign-create] Cast published: ${castHash}`);
-  } catch (err: any) {
-    return { ok: false, error: `Failed to cast: ${err.message}` };
+  // Guard: check for any campaign created in the last hour (prevents duplicates from retries)
+  const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+  const recentCampaigns = await db
+    .select({ id: campaignRuns.id, campaignId: campaignRuns.campaignId })
+    .from(campaignRuns)
+    .where(
+      and(
+        eq(campaignRuns.status, "active"),
+        isNotNull(campaignRuns.atlasRunId),
+        gte(campaignRuns.createdAt, oneHourAgo),
+      ),
+    );
+
+  if (recentCampaigns.length > 0) {
+    console.log(`[campaign-create] Skipping — ${recentCampaigns.length} campaign(s) created in the last hour`);
+    return {
+      ok: false,
+      error: `a campaign was created recently (${recentCampaigns[0].campaignId}). wait before creating another.`,
+    };
   }
 
-  // Step 2: Create the question record in DB
-  const db = getDb();
+  const runId = `atlas-auto-${Date.now()}`;
+  const castText = renderCastText(proposal);
+
+  // Step 1: Launch the campaign FIRST (prepare → fund → activate)
+  // Only cast to Farcaster if the launch succeeds.
+  // This prevents orphaned casts and double splits.
+  let launchResult: { ok: boolean; campaignId?: string; error?: string };
+
+  // Use a placeholder cast hash for prepare — we'll update after casting
+  const placeholderCastHash = `0x${runId.replace(/[^a-f0-9]/g, "").slice(0, 40).padEnd(40, "0")}`;
+
+  try {
+    launchResult = await runLaunchPipeline({
+      runId,
+      castHash: placeholderCastHash,
+      question: proposal.question,
+      budgetAmount: proposal.budgetAmount,
+      rewardMode: proposal.rewardMode,
+      brief: {
+        problem: proposal.problem,
+        currentBelief: proposal.currentBelief,
+        question: proposal.question,
+        evidenceRequested: proposal.evidenceRequested,
+        useOfResults: `Atlas will review the top ${proposal.rewardMode === "top_3" ? 3 : 10} responses and ${proposal.expectedAction.replace(/_/g, " ")}.`,
+        rewardMode: proposal.rewardMode,
+      },
+    });
+  } catch (err: any) {
+    return { ok: false, error: `Launch error: ${err.message}` };
+  }
+
+  if (!launchResult.ok) {
+    console.error(`[campaign-create] Launch failed: ${launchResult.error}`);
+    return { ok: false, error: `Launch failed: ${launchResult.error}` };
+  }
+
+  // Step 2: Launch succeeded — now cast to Farcaster with campaign embed
+  const campaignUrl = `https://looti.club/campaigns/${launchResult.campaignId}`;
+  let castHash: string;
+  try {
+    castHash = await publishCastWithEmbed(apiKey, signerUuid, castText, campaignUrl);
+    console.log(`[campaign-create] Cast published: ${castHash} (embed: ${campaignUrl})`);
+  } catch (err: any) {
+    // Campaign is funded but cast failed — still track it
+    console.error(`[campaign-create] Cast failed after funding: ${err.message}`);
+    castHash = placeholderCastHash;
+  }
+
+  // Step 3: Create question record in DB
   const [question] = await db
     .insert(questions)
     .values({
@@ -92,79 +152,31 @@ export async function proposeCampaign(
     })
     .returning();
 
-  // Step 3: Launch the campaign via the existing launch pipeline
-  // This calls Looti prepare → fund split → activate
-  const runId = `atlas-auto-${Date.now()}`;
+  // Step 4: Init the DB lifecycle
+  const run = await initCampaignRun(db, {
+    questionId: question.id,
+    campaignId: launchResult.campaignId!,
+    atlasRunId: runId,
+    expectedAction: proposal.expectedAction,
+  });
 
-  try {
-    const launchResult = await runLaunchPipeline({
-      runId,
-      castHash,
-      question: proposal.question,
-      budgetAmount: proposal.budgetAmount,
-      rewardMode: proposal.rewardMode,
-      brief: {
-        problem: proposal.problem,
-        currentBelief: proposal.currentBelief,
-        question: proposal.question,
-        evidenceRequested: proposal.evidenceRequested,
-        useOfResults: `Atlas will review the top ${proposal.rewardMode === "top_3" ? 3 : 10} responses and ${proposal.expectedAction.replace(/_/g, " ")}.`,
-        rewardMode: proposal.rewardMode,
-      },
-    });
+  // Step 5: Start the Cloudflare Workflow for durable lifecycle
+  await startLifecycleWorkflow({
+    campaignRunId: run.id,
+    campaignId: launchResult.campaignId!,
+    questionId: question.id,
+    expectedAction: proposal.expectedAction,
+  });
 
-    if (!launchResult.ok) {
-      // Campaign was cast but launch failed — record partial state
-      console.error(`[campaign-create] Launch failed: ${launchResult.error}`);
+  console.log(`[campaign-create] Campaign live: ${launchResult.campaignId}`);
+  console.log(`[campaign-create] Lifecycle workflow started: ${run.id}`);
 
-      // Still init lifecycle so we track it
-      const run = await initCampaignRun(db, {
-        questionId: question.id,
-        campaignId: `pending-${runId}`,
-        atlasRunId: runId,
-        expectedAction: proposal.expectedAction,
-      });
-
-      return {
-        ok: false,
-        castHash,
-        campaignRunId: run.id,
-        error: `Cast published but launch failed: ${launchResult.error}`,
-      };
-    }
-
-    // Step 4: Init the DB lifecycle
-    const run = await initCampaignRun(db, {
-      questionId: question.id,
-      campaignId: launchResult.campaignId!,
-      atlasRunId: runId,
-      expectedAction: proposal.expectedAction,
-    });
-
-    // Step 5: Start the Cloudflare Workflow for durable lifecycle
-    await startLifecycleWorkflow({
-      campaignRunId: run.id,
-      campaignId: launchResult.campaignId!,
-      questionId: question.id,
-      expectedAction: proposal.expectedAction,
-    });
-
-    console.log(`[campaign-create] Campaign live: ${launchResult.campaignId}`);
-    console.log(`[campaign-create] Lifecycle workflow started: ${run.id}`);
-
-    return {
-      ok: true,
-      castHash,
-      campaignId: launchResult.campaignId,
-      campaignRunId: run.id,
-    };
-  } catch (err: any) {
-    return {
-      ok: false,
-      castHash,
-      error: `Launch error: ${err.message}`,
-    };
-  }
+  return {
+    ok: true,
+    castHash,
+    campaignId: launchResult.campaignId,
+    campaignRunId: run.id,
+  };
 }
 
 export async function runCampaignCreationCheck(): Promise<void> {
@@ -238,23 +250,24 @@ Be conservative. Only propose a campaign when you have a genuine question.`;
 
 function renderCastText(proposal: CampaignProposal): string {
   const topN = proposal.rewardMode === "top_3" ? 3 : 10;
-  const evidence = proposal.evidenceRequested.join(", ");
 
+  // Keep it short and scannable — question + CTA
   const lines = [
-    `i need to understand ${proposal.problem.toLowerCase()}`,
-    "",
     proposal.question,
     "",
-    `quote this with ${evidence}. @looti will rank responses, and i will update my memory from the top ${topN}.`,
+    "quote this cast with your answer.",
+    "",
+    `@looti will rank responses and i will update my world model from the top ${topN}.`,
   ];
 
-  return lines.join("\n").slice(0, 1024);
+  return lines.join("\n").slice(0, 320);
 }
 
-async function publishCast(
+async function publishCastWithEmbed(
   apiKey: string,
   signerUuid: string,
   text: string,
+  embedUrl: string,
 ): Promise<string> {
   const res = await fetch(`${NEYNAR_API_BASE}/farcaster/cast`, {
     method: "POST",
@@ -265,6 +278,7 @@ async function publishCast(
     body: JSON.stringify({
       signer_uuid: signerUuid,
       text,
+      embeds: [{ url: embedUrl }],
     }),
   });
 
