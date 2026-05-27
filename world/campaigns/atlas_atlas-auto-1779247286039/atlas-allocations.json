@@ -1,0 +1,126 @@
+{
+  "atlasRunId": "atlas-auto-1779247286039",
+  "rewardSetSnapshotId": "atlas_atlas-auto-1779247286039_top_10",
+  "allocations": [
+    {
+      "fid": 528707,
+      "username": "ghostbo4.eth",
+      "quoteHash": "0xd1174441ef412714a0035f1c0b32d11aaec8b00b",
+      "rank": 1,
+      "points": 10,
+      "rationale": "Beta allocation: rank 1 in Looti 10-entry reward set.",
+      "memoryEffect": {
+        "worldPath": "world/candidates",
+        "summary": "Probably build my own J.A.R.V.I.S and then teach him to build more agents just like iron man did."
+      }
+    },
+    {
+      "fid": 7212,
+      "username": "bbroad",
+      "quoteHash": "0x1b6fa8fbb4ebe390f605f34dd067d7e0237de353",
+      "rank": 2,
+      "points": 9,
+      "rationale": "Beta allocation: rank 2 in Looti 10-entry reward set.",
+      "memoryEffect": {
+        "worldPath": "world/candidates",
+        "summary": "I would build an agent that can be friends with @atlas. My only [temporary] blocker would be that I'..."
+      }
+    },
+    {
+      "fid": 4926,
+      "username": "kazani",
+      "quoteHash": "0x64aab6033810b1724dea5534e903943e3e3d3125",
+      "rank": 3,
+      "points": 8,
+      "rationale": "Beta allocation: rank 3 in Looti 10-entry reward set.",
+      "memoryEffect": {
+        "worldPath": "world/candidates",
+        "summary": "Run every possible @atlas campaign question simultaneously; thousands of structured questions in par..."
+      }
+    },
+    {
+      "fid": 417832,
+      "username": "dandelion",
+      "quoteHash": "0xb003579707c871c3281d22f024dcebbcf209cfc6",
+      "rank": 4,
+      "points": 7,
+      "rationale": "Beta allocation: rank 4 in Looti 10-entry reward set.",
+      "memoryEffect": {
+        "worldPath": "world/candidates",
+        "summary": "i’d try to create understanding. a system that could translate not just languages but loneliness in..."
+      }
+    },
+    {
+      "fid": 291971,
+      "username": "megajayar.eth",
+      "quoteHash": "0x36526cc1dd00d776e1b407a9e4f0b84b5db08ea6",
+      "rank": 5,
+      "points": 6,
+      "rationale": "Beta allocation: rank 5 in Looti 10-entry reward set.",
+      "memoryEffect": {
+        "worldPath": "world/candidates",
+        "summary": "I'd launch an un-bottlenecked, mass-multiplayer on-chain strategy/battle engine capable of processin..."
+      }
+    },
+    {
+      "fid": 6786,
+      "username": "naaate",
+      "quoteHash": "0xde365f859892603ec9b700561edd4d547a1f9102",
+      "rank": 6,
+      "points": 5,
+      "rationale": "Beta allocation: rank 6 in Looti 10-entry reward set.",
+      "memoryEffect": {
+        "worldPath": "world/candidates",
+        "summary": "I assume by “infinite compute” you mean over time: “I can keep spending x every day forever” If tha..."
+      }
+    },
+    {
+      "fid": 526510,
+      "username": "mariabazooka",
+      "quoteHash": "0xddd4283e7f36689bf928cf271fddcbd56a66f3ed",
+      "rank": 7,
+      "points": 4,
+      "rationale": "Beta allocation: rank 7 in Looti 10-entry reward set.",
+      "memoryEffect": {
+        "worldPath": "world/candidates",
+        "summary": "If I had infinite compute starting tomorrow I would build a global AI system focused on accelerating..."
+      }
+    },
+    {
+      "fid": 242090,
+      "username": "at79w",
+      "quoteHash": "0xfd3c1a07f608402df431de16229a9797007650fa",
+      "rank": 8,
+      "points": 3,
+      "rationale": "Beta allocation: rank 8 in Looti 10-entry reward set.",
+      "memoryEffect": {
+        "worldPath": "world/candidates",
+        "summary": "If I had infinite compute starting tomorrow, I’d build a personal AI operating system that could und..."
+      }
+    },
+    {
+      "fid": 18561,
+      "username": "ezincrypto",
+      "quoteHash": "0xbd51cbe46455f485920935077dade946d3486dd5",
+      "rank": 9,
+      "points": 2,
+      "rationale": "Beta allocation: rank 9 in Looti 10-entry reward set.",
+      "memoryEffect": {
+        "worldPath": "world/candidates",
+        "summary": "I would build agents to create the “Library of Alexandria” OnChain, it would scan all archives & sit..."
+      }
+    },
+    {
+      "fid": 649360,
+      "username": "namrufretep",
+      "quoteHash": "0x10ccf053e2bbf7e6df7b7707e1bb1a28b225b674",
+      "rank": 10,
+      "points": 1,
+      "rationale": "Beta allocation: rank 10 in Looti 10-entry reward set.",
+      "memoryEffect": {
+        "worldPath": "world/candidates",
+        "summary": "You know @looti , actually is one complex question. And to be honest don’t know yet. But, you know ..."
+      }
+    }
+  ]
+}
