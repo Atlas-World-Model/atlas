@@ -6,6 +6,8 @@ on:
     paths:
       - 'services/runtime/**'
       - 'packages/**'
+      - 'world/**'
+      - '.github/workflows/deploy-vps.yml'
 
 jobs:
   deploy:
@@ -23,6 +25,20 @@ jobs:
           remote_user: root
           remote_key: ${{ secrets.VPS_SSH_KEY }}
 
+      - name: Pre-deploy import check
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: root
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            cd /opt/atlas
+            # Dry-run transpile to catch missing modules before restarting
+            /root/.bun/bin/bun build --no-bundle services/runtime/src/index.ts --outdir /dev/null 2>&1 || {
+              echo "::error::Import check failed — aborting deploy to avoid crashing the runtime"
+              exit 1
+            }
+
       - name: Restart runtime
         uses: appleboy/ssh-action@v1
         with:
@@ -31,5 +47,22 @@ jobs:
           key: ${{ secrets.VPS_SSH_KEY }}
           script: |
             systemctl restart atlas-runtime
-            sleep 2
-            systemctl is-active atlas-runtime
+            # Poll until active or failed (up to 15 seconds)
+            for i in $(seq 1 15); do
+              status=$(systemctl is-active atlas-runtime 2>&1)
+              if [ "$status" = "active" ]; then
+                echo "Runtime is active after ${i}s"
+                exit 0
+              elif [ "$status" = "failed" ] || [ "$status" = "inactive" ]; then
+                echo "Runtime failed to start: $status"
+                journalctl -u atlas-runtime --no-pager -n 10
+                exit 1
+              fi
+              sleep 1
+            done
+            echo "Runtime still activating after 15s — checking health endpoint"
+            curl -sf http://localhost:3141/health || {
+              echo "Health check failed"
+              journalctl -u atlas-runtime --no-pager -n 10
+              exit 1
+            }
