@@ -44,11 +44,34 @@ export async function runAtlasPost(): Promise<boolean> {
     ? tagCandidates.map((c) => `- @${c.username}${c.rank ? ` rank #${c.rank}` : ""}: ${c.reason}`).join("\n")
     : "- none";
 
+  // Fetch recent Atlas casts to avoid repetition
+  const recentPostRows = await getDb()
+    .select({ newValue: auditLog.newValue })
+    .from(auditLog)
+    .where(
+      and(
+        eq(auditLog.entityType, "atlas_post"),
+        gte(auditLog.createdAt, new Date(Date.now() - 48 * 60 * 60 * 1000)),
+      ),
+    )
+    .orderBy(desc(auditLog.createdAt))
+    .limit(5);
+  const recentPostTexts = recentPostRows
+    .map((r) => {
+      const d = r.newValue && typeof r.newValue === "object" ? r.newValue as Record<string, unknown> : {};
+      return typeof d.text === "string" ? d.text : null;
+    })
+    .filter(Boolean)
+    .map((t, i) => `  ${i + 1}. "${(t as string).slice(0, 120)}"`)
+    .join("\n");
+
   const result = await askAtlas({
     prompt: `You want to post a short thought on Farcaster. Not a campaign, not a reply — just you thinking out loud.
 
 Topic area: ${topic.name}
 Prompt: ${topic.prompt}
+
+${recentPostTexts ? `Your recent self-posts (DO NOT repeat these themes or phrasings):\n${recentPostTexts}\n` : ""}
 
 Public context:
 - Atlas public notebook/site: https://joinatlas.xyz

@@ -895,16 +895,41 @@ CAST: [the attribution cast text]`,
 
       console.log(`[brain-api] Synthesize result: ${result.response.slice(0, 200)}`);
 
-      // Parse and publish the attribution cast
-      if (result.ok) {
-        const castMatch = result.response.match(/CAST:\s*([\s\S]+?)$/);
-        if (castMatch) {
-          const castText = castMatch[1].trim();
-          const synthCampaignUrl = await resolveSafeCampaignEmbedUrl(body.campaignRunId, body.campaignId, body.castHash, body);
-          const hash = await publishCastHelper(apiKey, signerUuid, { text: castText, embedUrl: synthCampaignUrl });
-          if (hash) {
-            console.log(`[brain-api] Attribution cast published: ${hash}`);
+      // Parse and publish the attribution cast — only once per campaign
+      if (result.ok && body.campaignId) {
+        const attributionLease = await claimActionLease({
+          entityType: "synthesis_attribution",
+          entityId: String(body.campaignId),
+          reason: `Attribution cast for ${body.campaignId}`,
+          pendingTtlMinutes: 10,
+          successCooldownHours: 24 * 365,
+          successActions: ["posted"],
+        });
+        if (attributionLease) {
+          const castMatch = result.response.match(/CAST:\s*([\s\S]+?)$/);
+          if (castMatch) {
+            const castText = castMatch[1].trim();
+            const synthCampaignUrl = await resolveSafeCampaignEmbedUrl(body.campaignRunId, body.campaignId, body.castHash, body);
+            const hash = await publishCastHelper(apiKey, signerUuid, { text: castText, embedUrl: synthCampaignUrl });
+            if (hash) {
+              console.log(`[brain-api] Attribution cast published: ${hash}`);
+              await getDb().insert(auditLog).values({
+                id: createId(),
+                entityType: "synthesis_attribution",
+                entityId: String(body.campaignId),
+                action: "posted",
+                newValue: { castHash: hash, text: castText },
+                actor: "atlas_agent",
+                reason: `Attribution cast for ${body.campaignId}`,
+              });
+            } else {
+              await attributionLease.fail("publish returned no hash");
+            }
+          } else {
+            await attributionLease.fail("no CAST block in response");
           }
+        } else {
+          console.log(`[brain-api] Skipping attribution cast — already published for ${body.campaignId}`);
         }
       }
       break;
