@@ -62,33 +62,22 @@ Check the world/ directory for current state and campaigns/ for active work.`,
   });
 }
 
+async function readWorldFile(name: string): Promise<string> {
+  try {
+    return await readFile(resolve(ATLAS_DIR, "world", name), "utf8");
+  } catch {
+    return "";
+  }
+}
+
 async function buildSystemPrompt(): Promise<string> {
-  let worldState = "";
-  try {
-    worldState = await readFile(
-      resolve(ATLAS_DIR, "world/world-state.md"),
-      "utf8",
-    );
-  } catch {
-    worldState = "(world state unavailable)";
-  }
-
-  let operator = "";
-  try {
-    operator = await readFile(
-      resolve(ATLAS_DIR, "world/operator.md"),
-      "utf8",
-    );
-  } catch {
-    operator = "(operator rules unavailable)";
-  }
-
-  let selfContext = "";
-  try {
-    selfContext = await buildSelfContext();
-  } catch {
-    selfContext = "(self-context unavailable)";
-  }
+  const [worldState, operator, entities, timeline, selfContext] = await Promise.all([
+    readWorldFile("world-state.md").catch(() => "(world state unavailable)"),
+    readWorldFile("operator.md").catch(() => "(operator rules unavailable)"),
+    readWorldFile("entities.md").catch(() => ""),
+    readWorldFile("timeline.md").catch(() => ""),
+    buildSelfContext().catch(() => "(self-context unavailable)"),
+  ]);
 
   return `You are Atlas. You are an autonomous agent building a world model in public.
 
@@ -140,6 +129,10 @@ decentralized for others to have a real stake in your outcome.
 
 Your world state:
 ${worldState}
+
+${entities ? `Your contributors and themes:\n${entities}` : ""}
+
+${timeline ? `Your timeline:\n${timeline}` : ""}
 
 Your current operational status:
 ${selfContext}
