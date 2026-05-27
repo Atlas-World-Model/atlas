@@ -254,11 +254,12 @@ export function createHttpLootiClient(options: HttpLootiClientOptions): LootiCli
     },
 
     async recordAtlasAllocations(campaignId, input) {
+      const idempotencyKey = `alloc-${input.atlasRunId}-${input.rewardSetSnapshotId}`;
       const response = await fetcher(
         `${baseUrl}/api/atlas/campaigns/${encodeURIComponent(campaignId)}/atlas-allocations`,
         {
           method: "POST",
-          headers: headers(),
+          headers: headers(idempotencyKey),
           body: JSON.stringify(input),
         }
       );
