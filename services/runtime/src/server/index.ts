@@ -615,13 +615,20 @@ async function handleBrainRequest(body: Record<string, any>): Promise<void> {
           }
         }
 
+        // Build brief context of other answers so replies can reference cross-contributor patterns
+        const otherAnswers = notebookContributors
+          .filter((c) => c.authorFid !== contrib.authorFid)
+          .slice(0, 8)
+          .map((c) => `@${c.authorUsername}: "${c.text.slice(0, 80)}"`)
+          .join("; ");
+
         const replyResult = await askAtlas({
           prompt: `You have an active campaign. A contributor just quoted your question with their answer.
 
 Contributor: @${contrib.authorUsername} (fid:${contrib.authorFid})${contributorContext}
 ${contrib.rank ? `Looti rank: ${contrib.rank}\n` : ""}Their answer: "${contrib.text}"
 ${followUp ? `Their latest follow-up after your last reply: "${followUp.text}"\n` : ""}
-
+${otherAnswers ? `Other answers for context: ${otherAnswers}\n` : ""}
 Write a brief reply (under 280 characters). Be specific about what's useful, what you'd push back on, or what follow-up their answer suggests. Reference their actual content. Don't be generic.
 Write no URLs. Do not include the Looti campaign URL in reply text.`,
         });
@@ -714,7 +721,7 @@ Write no URLs. Do not include the Looti campaign URL in reply text.`,
       const quoteResult = await askAtlas({
         prompt: `You have an active campaign (round ${round}). Your question cast: ${castHash}
 
-${contributors.length > 0 ? `So far ${contributors.length} people have responded. Some answers: ${contributors.slice(0, 3).map((c) => `@${c.authorUsername}: "${c.text.slice(0, 100)}"`).join("; ")}` : "No responses yet."}
+${notebookContributors.length > 0 ? `So far ${notebookContributors.length} people have responded. Their answers:\n${notebookContributors.slice(0, 20).map((c, i) => `${i + 1}. @${c.authorUsername}${c.rank ? ` (rank #${c.rank})` : ""}: "${c.text.slice(0, 140)}"`).join("\n")}` : "No responses yet."}
 
 ${priorQuotes ? `Your recent casts about this campaign (DO NOT repeat these themes or observations):\n${priorQuotes}\n` : ""}Quote your own cast with a new angle — add context, share a thought that came up, refine what you're looking for, or react to what you've seen so far. This draws attention to the campaign.
 
