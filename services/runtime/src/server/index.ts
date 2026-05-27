@@ -41,7 +41,7 @@ import {
   getDb,
   questions,
 } from "../../../../packages/db/src/index.js";
-import { synthesizeCampaign } from "../../../../packages/agent/src/index.js";
+import { synthesizeCampaign, closeReviewLoop } from "../../../../packages/agent/src/index.js";
 import { createHttpLootiClient } from "../../../../packages/sdk/src/index.js";
 import { and, desc, eq, gte, inArray } from "drizzle-orm";
 
@@ -795,6 +795,22 @@ If you mention Atlas's memory, world model, notebook, transparency, or learning 
       console.log(
         `[brain-api] Synthesized ${synthesis.campaignId}: ${synthesis.rewardSet.entries.length} entries (${synthesis.synthesisResult})`,
       );
+
+      // Close the review loop — update entities.md, timeline.md, review.md
+      if (synthesis.rewardSet.entries.length > 0) {
+        try {
+          const reviewResult = await closeReviewLoop({
+            campaignId: synthesis.campaignId,
+            rewardSet: synthesis.rewardSet,
+            synthesisResult: synthesis.synthesisResult,
+          });
+          console.log(
+            `[brain-api] Review loop closed: ${reviewResult.entitiesUpdated} new contributors, timeline=${reviewResult.timelineAppended}, review=${reviewResult.reviewClosed}`,
+          );
+        } catch (err: any) {
+          console.error(`[brain-api] Review loop failed: ${err.message}`);
+        }
+      }
 
       if (!apiKey || !signerUuid) break;
 

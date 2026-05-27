@@ -58,6 +58,12 @@ export {
   computeReputationFromOutcomes,
 } from "./reputation.js";
 
+export {
+  closeReviewLoop,
+  type CloseReviewLoopInput,
+  type CloseReviewLoopResult,
+} from "./close-review-loop.js";
+
 async function readRuntimeConfig(): Promise<{ path: string; content: string }> {
   const path = resolve(process.cwd(), "atlas.yml");
   const content = await readFile(path, "utf8");
