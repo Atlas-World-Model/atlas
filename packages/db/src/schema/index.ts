@@ -8,3 +8,4 @@ export * from "./interventions.js";
 export * from "./outcome-checks.js";
 export * from "./context-snapshots.js";
 export * from "./audit-log.js";
+export * from "./campaign-public-logs.js";

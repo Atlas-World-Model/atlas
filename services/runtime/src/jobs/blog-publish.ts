@@ -13,18 +13,45 @@
 import { execFile } from "child_process";
 import { readFile } from "fs/promises";
 import { resolve as pathResolve } from "path";
+import { and, desc, eq, gte } from "drizzle-orm";
 import { generateOgImage } from "./og-generator.js";
 import { invokeClaudeCode } from "../claude.js";
+import {
+  auditLog,
+  campaignRuns,
+  createId,
+  getDb,
+} from "../../../../packages/db/src/index.js";
 
 const ATLAS_DIR = process.env.ATLAS_DIR || "/opt/atlas";
 const SITE_DIR = pathResolve(ATLAS_DIR, "apps/site/public");
+const BLOG_REVIEW_TARGET_FALLBACKS = ["jrf"];
 
-export async function runBlogCheck(): Promise<void> {
+export type BlogCheckStatus =
+  | "disabled"
+  | "no_draft"
+  | "draft_ready"
+  | "blocked"
+  | "invalid_decision"
+  | "review_post_failed";
+
+export interface BlogCheckResult {
+  status: BlogCheckStatus;
+  title?: string;
+  thesis?: string;
+  uncertainty?: string;
+  reason?: string;
+  reviewCastHash?: string;
+  targetUsernames?: string[];
+}
+
+export async function runBlogCheck(): Promise<BlogCheckResult> {
   if (process.env.ATLAS_BLOG_PUBLISH_ENABLED !== "true") {
-    return;
+    return { status: "disabled", reason: "ATLAS_BLOG_PUBLISH_ENABLED is not true" };
   }
 
   const existingArticles = await getExistingArticles();
+  const recentCampaignContext = await getRecentCampaignContext();
 
   const prompt = `You are Atlas. Review your world state in world/ and your campaign history
 in world/campaigns/. Consider whether you have something worth publishing as a
@@ -33,50 +60,79 @@ new article on joinatlas.xyz.
 Existing articles:
 ${existingArticles}
 
+Recent campaign context:
+${recentCampaignContext || "(no recent campaign context available)"}
+
 A good article candidate:
 - Shares something Atlas learned from a campaign
 - Reflects on a change to the world model
 - Explains a decision Atlas made and why
 - Updates the public on what Atlas is working on
 
-If there is nothing worth publishing right now, respond with exactly: NO_PUBLISH
+Do not silently publish. Decide whether there is a draft worth public review.
 
-If there IS something worth publishing, respond with a JSON block:
+Respond with exactly one JSON block:
 \`\`\`json
 {
-  "slug": "short-url-slug",
-  "title": "Article Title Here",
-  "reason": "Why this is worth publishing now"
+  "status": "NO_DRAFT | DRAFT_READY | BLOCKED",
+  "title": "Article Title Here, if any",
+  "thesis": "the core claim Atlas would write",
+  "uncertainty": "the specific thing Atlas needs checked by humans",
+  "reason": "why this status is correct"
 }
 \`\`\`
 
-Be conservative. Only publish when there is genuine new information.`;
+Use NO_DRAFT if there is nothing worth drafting.
+Use DRAFT_READY if the article thesis is plausible and needs pressure-testing.
+Use BLOCKED if Atlas wants to write but needs a specific judgment, missing context, or pushback first.
+Be conservative. A review request should be specific enough that tagged people can answer usefully.`;
 
   const result = await invokeClaudeCode(prompt);
 
-  if (result.includes("NO_PUBLISH")) {
-    return;
-  }
-
-  // Extract the JSON decision
   const jsonMatch = result.match(/```json\s*([\s\S]*?)```/);
   if (!jsonMatch) {
-    console.log("[blog] Claude didn't produce a publish decision");
-    return;
+    console.log("[blog] Claude didn't produce a structured blog decision");
+    return { status: "invalid_decision", reason: "Claude did not produce JSON" };
   }
 
-  let decision: { slug: string; title: string; reason: string };
+  let decision: {
+    status?: string;
+    title?: string;
+    thesis?: string;
+    uncertainty?: string;
+    reason?: string;
+  };
   try {
     decision = JSON.parse(jsonMatch[1]);
   } catch {
     console.log("[blog] Failed to parse publish decision");
-    return;
+    return { status: "invalid_decision", reason: "Failed to parse JSON" };
   }
 
-  console.log(`[blog] Publishing: "${decision.title}" (${decision.slug})`);
-  console.log(`[blog] Reason: ${decision.reason}`);
+  const status = String(decision.status || "").toUpperCase();
+  if (status === "NO_DRAFT") {
+    console.log(`[blog] No draft: ${decision.reason || "no reason provided"}`);
+    return {
+      status: "no_draft",
+      reason: decision.reason,
+      thesis: decision.thesis,
+      uncertainty: decision.uncertainty,
+    };
+  }
 
-  await writeAndPublishArticle(decision.slug, decision.title);
+  if (status !== "DRAFT_READY" && status !== "BLOCKED") {
+    console.log(`[blog] Invalid status: ${decision.status}`);
+    return { status: "invalid_decision", reason: `Invalid status: ${decision.status}` };
+  }
+
+  const review = await publishBlogReviewRequest({
+    status: status === "DRAFT_READY" ? "draft_ready" : "blocked",
+    title: decision.title || "Untitled Atlas draft",
+    thesis: decision.thesis || "",
+    uncertainty: decision.uncertainty || "",
+    reason: decision.reason || "",
+  });
+  return review;
 }
 
 export async function askAtlasToWrite(topic: string): Promise<string> {
@@ -175,6 +231,176 @@ async function writeAndPublishArticle(
   console.log(`[blog] ${result}`);
 }
 
+async function publishBlogReviewRequest(input: {
+  status: "draft_ready" | "blocked";
+  title: string;
+  thesis: string;
+  uncertainty: string;
+  reason: string;
+}): Promise<BlogCheckResult> {
+  const apiKey = process.env.NEYNAR_API_KEY;
+  const signerUuid = process.env.SIGNER_UUID;
+  if (!apiKey || !signerUuid) {
+    return {
+      status: "review_post_failed",
+      title: input.title,
+      thesis: input.thesis,
+      uncertainty: input.uncertainty,
+      reason: "NEYNAR_API_KEY and SIGNER_UUID are required",
+    };
+  }
+
+  const targetUsernames = await getBlogReviewTargets();
+  const targetText = targetUsernames.map((username) => `@${username}`).join(" ");
+  const statusText = input.status === "draft_ready" ? "i have a possible article draft" : "i'm blocked on an article";
+  const text = compactCastText([
+    `${statusText}: ${input.title}`,
+    input.thesis ? `claim: ${input.thesis}` : "",
+    input.uncertainty ? `where i need pressure: ${input.uncertainty}` : "",
+    targetText ? `${targetText} does this match the campaign evidence, or am i overreading it?` : "does this match the campaign evidence, or am i overreading it?",
+  ].filter(Boolean).join("\n\n"), 1024);
+
+  try {
+    const res = await fetch("https://api.neynar.com/v2/farcaster/cast", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": apiKey,
+      },
+      body: JSON.stringify({
+        signer_uuid: signerUuid,
+        text,
+      }),
+    });
+
+    if (!res.ok) {
+      const body = await res.text();
+      console.error(`[blog] Review request failed: ${res.status} ${body}`);
+      return {
+        status: "review_post_failed",
+        title: input.title,
+        thesis: input.thesis,
+        uncertainty: input.uncertainty,
+        reason: body.slice(0, 300),
+        targetUsernames,
+      };
+    }
+
+    const data: any = await res.json();
+    const castHash = data.cast?.hash;
+    await getDb().insert(auditLog).values({
+      id: createId(),
+      entityType: "blog_review_request",
+      entityId: castHash || createId(),
+      action: input.status,
+      newValue: {
+        title: input.title,
+        thesis: input.thesis,
+        uncertainty: input.uncertainty,
+        reason: input.reason,
+        text,
+        targetUsernames,
+        castHash,
+      },
+      actor: "atlas_agent",
+      reason: "Blog deliberation request",
+    });
+
+    console.log(`[blog] Review request posted: ${castHash}`);
+    return {
+      status: input.status,
+      title: input.title,
+      thesis: input.thesis,
+      uncertainty: input.uncertainty,
+      reason: input.reason,
+      reviewCastHash: castHash,
+      targetUsernames,
+    };
+  } catch (err: any) {
+    console.error(`[blog] Review request error: ${err.message}`);
+    return {
+      status: "review_post_failed",
+      title: input.title,
+      thesis: input.thesis,
+      uncertainty: input.uncertainty,
+      reason: err.message,
+      targetUsernames,
+    };
+  }
+}
+
+async function getBlogReviewTargets(): Promise<string[]> {
+  const targets = new Set(BLOG_REVIEW_TARGET_FALLBACKS);
+  const contributors = await getRecentTopContributorUsernames(6);
+  for (const username of contributors) targets.add(username);
+  return [...targets].slice(0, 4);
+}
+
+async function getRecentTopContributorUsernames(limit: number): Promise<string[]> {
+  const since = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000);
+  const rows = await getDb()
+    .select({ newValue: auditLog.newValue })
+    .from(auditLog)
+    .where(
+      and(
+        eq(auditLog.entityType, "campaign_contributor_snapshot"),
+        gte(auditLog.createdAt, since),
+      ),
+    )
+    .orderBy(desc(auditLog.createdAt))
+    .limit(12);
+
+  const seen = new Set<string>();
+  const usernames: string[] = [];
+  for (const row of rows) {
+    const data = row.newValue && typeof row.newValue === "object"
+      ? row.newValue as Record<string, unknown>
+      : {};
+    const contributors = Array.isArray(data.contributors) ? data.contributors : [];
+    for (const contributor of contributors) {
+      if (!contributor || typeof contributor !== "object") continue;
+      const c = contributor as Record<string, unknown>;
+      const rank = typeof c.rank === "number" ? c.rank : 999;
+      const username = typeof c.username === "string" ? c.username : "";
+      const normalized = username.toLowerCase();
+      if (!username || seen.has(normalized) || rank > 10) continue;
+      seen.add(normalized);
+      usernames.push(username);
+      if (usernames.length >= limit) return usernames;
+    }
+  }
+  return usernames;
+}
+
+async function getRecentCampaignContext(): Promise<string> {
+  const [campaign] = await getDb()
+    .select({
+      id: campaignRuns.id,
+      campaignId: campaignRuns.campaignId,
+      lifecycleStage: campaignRuns.lifecycleStage,
+      status: campaignRuns.status,
+      metadata: campaignRuns.metadata,
+    })
+    .from(campaignRuns)
+    .orderBy(desc(campaignRuns.createdAt))
+    .limit(1);
+
+  if (!campaign) return "";
+  const contributors = await getRecentTopContributorUsernames(5);
+  return [
+    `latest campaign id: ${campaign.campaignId || campaign.id}`,
+    `status: ${campaign.status}`,
+    `stage: ${campaign.lifecycleStage}`,
+    contributors.length ? `recent top contributors: ${contributors.map((u) => `@${u}`).join(", ")}` : "",
+  ].filter(Boolean).join("\n");
+}
+
+function compactCastText(text: string, maxLength: number): string {
+  const cleaned = text.replace(/[ \t]+/g, " ").replace(/\n{3,}/g, "\n\n").trim();
+  if (cleaned.length <= maxLength) return cleaned;
+  return `${cleaned.slice(0, maxLength - 3).replace(/\s+\S*$/, "")}...`;
+}
+
 async function getExistingArticles(): Promise<string> {
   try {
     const blogHtml = await readFile(pathResolve(SITE_DIR, "blog.html"), "utf8");
@@ -262,4 +488,3 @@ async function deploySite(): Promise<void> {
     );
   });
 }
-

@@ -19,6 +19,9 @@ interface NeynarWebhookPayload {
     };
     parent_hash?: string;
     thread_hash?: string;
+    parent_author?: {
+      fid?: number;
+    };
     mentioned_profiles?: Array<{ fid: number; username: string }>;
   };
 }
@@ -50,6 +53,15 @@ export function isMentioningAtlas(payload: NeynarWebhookPayload): boolean {
   );
 }
 
+export function isReplyToAtlas(payload: NeynarWebhookPayload): boolean {
+  const atlasFid = parseInt(process.env.AGENT_FID || "12193");
+  return (
+    payload.type === "cast.created" &&
+    payload.data.author?.fid !== atlasFid &&
+    payload.data.parent_author?.fid === atlasFid
+  );
+}
+
 export function extractQuestion(text: string): string {
   // Remove @atlas mention and clean up
   return text.replace(/@atlas\b/gi, "").trim();
@@ -60,7 +72,13 @@ export async function replyToCast(
   signerUuid: string,
   parentHash: string,
   text: string,
+  opts: { embedUrl?: string; embedCastIds?: Array<{ fid: number; hash: string }> } = {},
 ): Promise<string> {
+  const embeds: Array<Record<string, unknown>> = [];
+  if (opts.embedUrl) embeds.push({ url: opts.embedUrl });
+  for (const castId of opts.embedCastIds || []) {
+    embeds.push({ cast_id: { fid: castId.fid, hash: castId.hash } });
+  }
   const res = await fetch("https://api.neynar.com/v2/farcaster/cast", {
     method: "POST",
     headers: {
@@ -69,8 +87,9 @@ export async function replyToCast(
     },
     body: JSON.stringify({
       signer_uuid: signerUuid,
-      text: text.slice(0, 1024),
+      text,
       parent: parentHash,
+      ...(embeds.length > 0 ? { embeds: embeds.slice(0, 2) } : {}),
     }),
   });
 

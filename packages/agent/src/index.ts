@@ -53,6 +53,7 @@ export {
 
 export {
   updateReputation,
+  recordRankedCampaignOutcome,
   applyTimeDecay,
   computeReputationFromOutcomes,
 } from "./reputation.js";

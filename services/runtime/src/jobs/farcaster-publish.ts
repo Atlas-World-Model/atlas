@@ -98,7 +98,7 @@ function renderCampaignPrompt(item: {
     "@looti rewards are for the most useful answers.",
   ].filter((line): line is string => line !== null);
 
-  return lines.join("\n").slice(0, 1024);
+  return lines.join("\n");
 }
 
 async function publishCast(

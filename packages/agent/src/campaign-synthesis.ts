@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, desc, eq, or } from "drizzle-orm";
 import {
   answers,
   auditLog,
@@ -10,6 +10,7 @@ import {
 import type { LootiClient, LootiRewardSet, LootiRewardSetEntry } from "../../sdk/src/index.js";
 import { ingestRewardSet } from "./reward-set-ingestion.js";
 import { transitionCampaign } from "./campaign-lifecycle.js";
+import { recordRankedCampaignOutcome } from "./reputation.js";
 
 export interface SynthesizeCampaignInput {
   db: Db;
@@ -93,6 +94,8 @@ export async function synthesizeCampaign(
   const { inserted, skipped } = await ingestAnswersToDb(
     input.db,
     run.questionId,
+    run.id,
+    run.campaignId,
     ingestion.rewardSet,
   );
 
@@ -154,13 +157,21 @@ export async function synthesizeCampaign(
 async function ingestAnswersToDb(
   db: Db,
   questionId: string,
+  campaignRunId: string,
+  campaignId: string,
   rewardSet: LootiRewardSet,
 ): Promise<{ inserted: number; skipped: number }> {
   let inserted = 0;
   let skipped = 0;
+  const conversationByFid = await loadCampaignConversationContext(db, campaignRunId, campaignId);
 
   for (const entry of rewardSet.entries) {
     const quote = entry.topQuotes[0];
+    const baseAnswerText = quote?.text || summarizeEntry(entry);
+    const answerText = appendConversationContext(
+      baseAnswerText,
+      conversationByFid.get(entry.fid),
+    );
     const existing = quote?.hash
       ? await db.query.answers.findFirst({
           where: and(
@@ -177,24 +188,127 @@ async function ingestAnswersToDb(
         });
 
     if (existing) {
+      if (answerText !== existing.text && !existing.text.includes("Follow-up thread:")) {
+        await db
+          .update(answers)
+          .set({ text: answerText })
+          .where(eq(answers.id, existing.id));
+      }
+      await recordRankedCampaignOutcome(db, {
+        questionId,
+        answerId: existing.id,
+        campaignRunId,
+        campaignId,
+        fid: entry.fid,
+        displayName: entry.displayName || entry.username,
+        rank: entry.rank,
+        score: quote?.lootiScore ?? entry.totalLootiScore,
+        castHash: quote?.hash || null,
+        answerText,
+      });
       skipped += 1;
       continue;
     }
 
-    await db.insert(answers).values({
-      id: createId(),
+    const [answer] = await db
+      .insert(answers)
+      .values({
+        id: createId(),
+        questionId,
+        farcasterCastHash: quote?.hash || null,
+        responderFid: entry.fid,
+        text: answerText,
+        lootiRank: entry.rank,
+        lootiScore: String(quote?.lootiScore ?? entry.totalLootiScore),
+        claims: [],
+      })
+      .returning();
+    await recordRankedCampaignOutcome(db, {
       questionId,
-      farcasterCastHash: quote?.hash || null,
-      responderFid: entry.fid,
-      text: quote?.text || summarizeEntry(entry),
-      lootiRank: entry.rank,
-      lootiScore: String(quote?.lootiScore ?? entry.totalLootiScore),
-      claims: [],
+      answerId: answer.id,
+      campaignRunId,
+      campaignId,
+      fid: entry.fid,
+      displayName: entry.displayName || entry.username,
+      rank: entry.rank,
+      score: quote?.lootiScore ?? entry.totalLootiScore,
+      castHash: quote?.hash || null,
+      answerText,
     });
     inserted += 1;
   }
 
   return { inserted, skipped };
+}
+
+async function loadCampaignConversationContext(
+  db: Db,
+  campaignRunId: string,
+  campaignId: string,
+): Promise<Map<number, string[]>> {
+  const rows = await db
+    .select({ newValue: auditLog.newValue })
+    .from(auditLog)
+    .where(
+      and(
+        eq(auditLog.entityType, "campaign_contributor_snapshot"),
+        or(
+          eq(auditLog.entityId, campaignRunId),
+          eq(auditLog.reason, campaignId),
+        ),
+      ),
+    )
+    .orderBy(desc(auditLog.createdAt))
+    .limit(5);
+
+  const conversations = new Map<number, string[]>();
+  for (const row of rows.reverse()) {
+    const snapshot = row.newValue && typeof row.newValue === "object"
+      ? row.newValue as Record<string, unknown>
+      : {};
+    const contributors = Array.isArray(snapshot.contributors) ? snapshot.contributors : [];
+    for (const rawContributor of contributors) {
+      if (!rawContributor || typeof rawContributor !== "object") continue;
+      const contributor = rawContributor as Record<string, unknown>;
+      const fid = typeof contributor.fid === "number"
+        ? contributor.fid
+        : Number(contributor.fid);
+      if (!Number.isFinite(fid)) continue;
+
+      const conversation = Array.isArray(contributor.conversation)
+        ? contributor.conversation
+            .filter((line): line is string => typeof line === "string" && line.trim().length > 0)
+            .slice(-6)
+        : [];
+      if (conversation.length > 0) {
+        conversations.set(fid, conversation);
+      }
+    }
+  }
+
+  return conversations;
+}
+
+function appendConversationContext(answerText: string, conversation?: string[]): string {
+  const cleanAnswer = answerText.trim();
+  if (!conversation || conversation.length === 0) return cleanAnswer;
+
+  const uniqueLines: string[] = [];
+  const seen = new Set<string>();
+  for (const line of conversation) {
+    const clean = line.replace(/\s+/g, " ").trim();
+    if (!clean || seen.has(clean)) continue;
+    seen.add(clean);
+    uniqueLines.push(clean);
+  }
+  if (uniqueLines.length === 0) return cleanAnswer;
+
+  return [
+    cleanAnswer,
+    "",
+    "Follow-up thread:",
+    ...uniqueLines.map((line) => `- ${line}`),
+  ].join("\n").slice(0, 6000);
 }
 
 function determineSynthesisResult(run: CampaignRun, rewardSet: LootiRewardSet): string {

@@ -40,11 +40,15 @@ async function main() {
   }
 
   // Start HTTP server (webhook listener + brain API)
-  await import("./server/index.js");
+  const serverModule = await import("./server/index.js");
 
   // Graceful shutdown
-  const shutdown = () => {
+  let shuttingDown = false;
+  const shutdown = async () => {
+    if (shuttingDown) return;
+    shuttingDown = true;
     console.log("\n[atlas-runtime] Shutting down...");
+    await serverModule.waitForInFlightTasks(45_000);
     process.exit(0);
   };
 
