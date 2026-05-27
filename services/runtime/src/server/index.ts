@@ -48,7 +48,7 @@ import { and, desc, eq, gte, inArray } from "drizzle-orm";
 const execFileAsync = promisify(execFile);
 const PORT = parseInt(process.env.ATLAS_WEBHOOK_PORT || "3141");
 const MAX_JSON_BYTES = 64 * 1024;
-const CAMPAIGN_ENGAGEMENT_COOLDOWN_HOURS = 1;
+const CAMPAIGN_ENGAGEMENT_COOLDOWN_HOURS = 4;
 const ATLAS_POST_COOLDOWN_HOURS = 8;
 const LIVE_CAMPAIGN_STAGES = ["ask", "collect", "synthesize", "build_test", "iterate"] as const;
 const NOTEBOOK_CORPUS_LIMIT = 30;
@@ -689,12 +689,36 @@ Write no URLs. Do not include the Looti campaign URL in reply text.`,
       }
 
       // Step 3: Quote own cast with a new angle
+      // Fetch recent Atlas casts to avoid repetition
+      const recentCasts = await db
+        .select({ newValue: auditLog.newValue })
+        .from(auditLog)
+        .where(
+          and(
+            eq(auditLog.entityType, "campaign_engagement"),
+            eq(auditLog.action, "published"),
+            gte(auditLog.createdAt, new Date(Date.now() - 48 * 60 * 60 * 1000)),
+          ),
+        )
+        .orderBy(desc(auditLog.createdAt))
+        .limit(6);
+      const priorQuotes = recentCasts
+        .map((r) => {
+          const d = r.newValue && typeof r.newValue === "object" ? r.newValue as Record<string, unknown> : {};
+          return typeof d.quoteText === "string" ? d.quoteText : null;
+        })
+        .filter(Boolean)
+        .map((t, i) => `  ${i + 1}. "${(t as string).slice(0, 120)}"`)
+        .join("\n");
+
       const quoteResult = await askAtlas({
         prompt: `You have an active campaign (round ${round}). Your question cast: ${castHash}
 
 ${contributors.length > 0 ? `So far ${contributors.length} people have responded. Some answers: ${contributors.slice(0, 3).map((c) => `@${c.authorUsername}: "${c.text.slice(0, 100)}"`).join("; ")}` : "No responses yet."}
 
-Quote your own cast with a new angle — add context, share a thought that came up, refine what you're looking for, or react to what you've seen so far. This draws attention to the campaign.
+${priorQuotes ? `Your recent casts about this campaign (DO NOT repeat these themes or observations):\n${priorQuotes}\n` : ""}Quote your own cast with a new angle — add context, share a thought that came up, refine what you're looking for, or react to what you've seen so far. This draws attention to the campaign.
+
+CRITICAL: Say something NEW. Do not repeat observations from your recent casts above. If you've already noted a pattern, build on it or move to something else entirely.
 
 Write just the cast text (under 280 characters). Be genuine, not promotional.
 If you mention Atlas's memory, world model, notebook, transparency, or learning process, explain it in plain public language. Prefer a concrete observation from the responses over internal process. The public campaign notebook URL will be attached as an embed when available, so do not force a raw URL.`,
