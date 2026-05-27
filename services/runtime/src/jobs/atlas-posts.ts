@@ -45,13 +45,14 @@ export async function runAtlasPost(): Promise<boolean> {
     : "- none";
 
   // Fetch recent Atlas casts to avoid repetition
+  const since48h = new Date(Date.now() - 48 * 60 * 60 * 1000);
   const recentPostRows = await getDb()
     .select({ newValue: auditLog.newValue })
     .from(auditLog)
     .where(
       and(
         eq(auditLog.entityType, "atlas_post"),
-        gte(auditLog.createdAt, new Date(Date.now() - 48 * 60 * 60 * 1000)),
+        gte(auditLog.createdAt, since48h),
       ),
     )
     .orderBy(desc(auditLog.createdAt))
@@ -65,13 +66,37 @@ export async function runAtlasPost(): Promise<boolean> {
     .map((t, i) => `  ${i + 1}. "${(t as string).slice(0, 120)}"`)
     .join("\n");
 
+  // Fetch recent engagement quotes to avoid repeating those themes too
+  const recentEngagementRows = await getDb()
+    .select({ newValue: auditLog.newValue })
+    .from(auditLog)
+    .where(
+      and(
+        eq(auditLog.entityType, "campaign_engagement"),
+        eq(auditLog.action, "published"),
+        gte(auditLog.createdAt, since48h),
+      ),
+    )
+    .orderBy(desc(auditLog.createdAt))
+    .limit(5);
+  const recentEngagementTexts = recentEngagementRows
+    .map((r) => {
+      const d = r.newValue && typeof r.newValue === "object" ? r.newValue as Record<string, unknown> : {};
+      return typeof d.quoteText === "string" ? d.quoteText : null;
+    })
+    .filter(Boolean)
+    .map((t, i) => `  ${i + 1}. "${(t as string).slice(0, 120)}"`)
+    .join("\n");
+
+  const recentCastsDedup = [recentPostTexts, recentEngagementTexts].filter(Boolean).join("\n");
+
   const result = await askAtlas({
     prompt: `You want to post a short thought on Farcaster. Not a campaign, not a reply — just you thinking out loud.
 
 Topic area: ${topic.name}
 Prompt: ${topic.prompt}
 
-${recentPostTexts ? `Your recent self-posts (DO NOT repeat these themes or phrasings):\n${recentPostTexts}\n` : ""}
+${recentCastsDedup ? `Your recent casts (DO NOT repeat these themes or phrasings):\n${recentCastsDedup}\n` : ""}
 
 Public context:
 - Atlas public notebook/site: https://joinatlas.xyz

@@ -14,6 +14,8 @@
  */
 
 import { execFile } from "child_process";
+import { readFile } from "fs/promises";
+import { resolve } from "path";
 import { promisify } from "util";
 import {
   verifyWebhookSignature,
@@ -46,6 +48,7 @@ import { createHttpLootiClient } from "../../../../packages/sdk/src/index.js";
 import { and, desc, eq, gte, inArray } from "drizzle-orm";
 
 const execFileAsync = promisify(execFile);
+const ATLAS_DIR = process.env.ATLAS_DIR || "/opt/atlas";
 const PORT = parseInt(process.env.ATLAS_WEBHOOK_PORT || "3141");
 const MAX_JSON_BYTES = 64 * 1024;
 const CAMPAIGN_ENGAGEMENT_COOLDOWN_HOURS = 4;
@@ -943,18 +946,121 @@ CAST: [the attribution cast text]`,
     }
 
     case "evaluate": {
-      const result = await askAtlas({
-        prompt: `Evaluate campaign ${body.campaignId}. Did the answers lead to anything useful? Did Atlas's behavior change? Should this question pattern be reused? Write a brief assessment.`,
+      const evalRun = await getDb().query.campaignRuns.findFirst({
+        where: eq(campaignRuns.id, body.campaignRunId),
       });
-      console.log(`[brain-api] Evaluate result: ${result.response.slice(0, 200)}`);
+      if (!evalRun) {
+        console.error(`[brain-api] evaluate: campaign run ${body.campaignRunId} not found`);
+        break;
+      }
+      const evalQuestion = evalRun.questionId
+        ? await getDb().query.questions.findFirst({ where: eq(questions.id, evalRun.questionId) })
+        : null;
+      const evalTopAnswers = evalRun.questionId
+        ? await getDb()
+            .select()
+            .from(answers)
+            .where(eq(answers.questionId, evalRun.questionId))
+            .orderBy(answers.lootiRank)
+            .limit(10)
+        : [];
+      let evalEvidence = "";
+      try {
+        const evidencePath = resolve(ATLAS_DIR, "world/campaigns", evalRun.campaignId || body.campaignId, "evidence.md");
+        evalEvidence = await readFile(evidencePath, "utf8");
+      } catch {}
+
+      const evalAnswerBlock = evalTopAnswers
+        .map((a, i) => `${i + 1}. [rank ${a.lootiRank ?? "?"}] ${a.text?.slice(0, 400)}`)
+        .join("\n");
+
+      const evalPrompt = `You are evaluating campaign ${body.campaignId} (run ${body.campaignRunId}).
+
+## Campaign Run
+- Lifecycle stage: ${evalRun.lifecycleStage}
+- Expected action: ${evalRun.expectedAction ?? "none"}
+- Synthesis result: ${evalRun.synthesisResult ?? "none"}
+- Created: ${evalRun.createdAt}
+
+## Question
+${evalQuestion?.text ?? "(question not found)"}
+
+## Top ${evalTopAnswers.length} Answers (by Looti rank)
+${evalAnswerBlock || "(no answers yet)"}
+
+${evalEvidence ? `## Evidence\n${evalEvidence.slice(0, 3000)}` : ""}
+
+## Your task
+Evaluate this campaign:
+1. Did the answers lead to useful memory changes or world-model updates? Be specific about what Atlas learned.
+2. Should this question pattern be reused in future campaigns? Why or why not?
+3. Rate the overall campaign quality (high / medium / low / failed) and explain.
+4. What would have made this campaign more effective?
+
+Write a brief but substantive assessment.`;
+
+      const evalResult = await askAtlas({ prompt: evalPrompt });
+      console.log(`[brain-api] Evaluate result: ${evalResult.response.slice(0, 200)}`);
       break;
     }
 
     case "final-label": {
-      const result = await askAtlas({
-        prompt: `Apply a final label to campaign ${body.campaignId}. Was this line of inquiry worth it? Did contributors' answers hold up? Update reputation assessments. Write a brief final assessment.`,
+      const labelRun = await getDb().query.campaignRuns.findFirst({
+        where: eq(campaignRuns.id, body.campaignRunId),
       });
-      console.log(`[brain-api] Final label result: ${result.response.slice(0, 200)}`);
+      if (!labelRun) {
+        console.error(`[brain-api] final-label: campaign run ${body.campaignRunId} not found`);
+        break;
+      }
+      const labelQuestion = labelRun.questionId
+        ? await getDb().query.questions.findFirst({ where: eq(questions.id, labelRun.questionId) })
+        : null;
+      const labelTopAnswers = labelRun.questionId
+        ? await getDb()
+            .select()
+            .from(answers)
+            .where(eq(answers.questionId, labelRun.questionId))
+            .orderBy(answers.lootiRank)
+            .limit(10)
+        : [];
+      let labelEvidence = "";
+      try {
+        const evidencePath = resolve(ATLAS_DIR, "world/campaigns", labelRun.campaignId || body.campaignId, "evidence.md");
+        labelEvidence = await readFile(evidencePath, "utf8");
+      } catch {}
+
+      const labelAnswerBlock = labelTopAnswers
+        .map((a, i) => `${i + 1}. [rank ${a.lootiRank ?? "?"}] (fid ${a.responderFid}) ${a.text?.slice(0, 400)}`)
+        .join("\n");
+
+      const labelPrompt = `You are applying a final label to campaign ${body.campaignId} (run ${body.campaignRunId}).
+
+## Campaign Run
+- Lifecycle stage: ${labelRun.lifecycleStage}
+- Expected action: ${labelRun.expectedAction ?? "none"}
+- Synthesis result: ${labelRun.synthesisResult ?? "none"}
+- Created: ${labelRun.createdAt}
+
+## Question
+${labelQuestion?.text ?? "(question not found)"}
+
+## Top ${labelTopAnswers.length} Answers (by Looti rank)
+${labelAnswerBlock || "(no answers)"}
+
+${labelEvidence ? `## Evidence\n${labelEvidence.slice(0, 3000)}` : ""}
+
+## Your task
+Apply a final label and retrospective to this campaign:
+1. Was this line of inquiry worth it? Did it produce knowledge Atlas didn't already have?
+2. Did the campaign change Atlas's world model durably — or was the information ephemeral/already known?
+3. Assess contributor quality: which respondents (by fid) provided the most valuable, accurate, or novel insights? Which answers were low-signal?
+4. Update reputation assessments: note any contributors who should be weighted higher or lower in future campaigns.
+5. Assign a final label: one of [breakthrough, valuable, incremental, low_value, failed].
+
+Write a brief but substantive final assessment.`;
+
+      const labelResult = await askAtlas({ prompt: labelPrompt });
+      console.log(`[brain-api] Final label result: ${labelResult.response.slice(0, 200)}`);
       break;
     }
 

@@ -16,6 +16,7 @@ import { resolve as pathResolve } from "path";
 import { and, desc, eq, gte } from "drizzle-orm";
 import { generateOgImage } from "./og-generator.js";
 import { invokeClaudeCode } from "../claude.js";
+import { askAtlas } from "../server/atlas-brain.js";
 import {
   auditLog,
   campaignRuns,
@@ -87,9 +88,10 @@ Use DRAFT_READY if the article thesis is plausible and needs pressure-testing.
 Use BLOCKED if Atlas wants to write but needs a specific judgment, missing context, or pushback first.
 Be conservative. A review request should be specific enough that tagged people can answer usefully.`;
 
-  const result = await invokeClaudeCode(prompt);
+  const result = await askAtlas({ prompt });
+  const resultText = result.ok ? result.response : "(error)";
 
-  const jsonMatch = result.match(/```json\s*([\s\S]*?)```/);
+  const jsonMatch = resultText.match(/```json\s*([\s\S]*?)```/);
   if (!jsonMatch) {
     console.log("[blog] Claude didn't produce a structured blog decision");
     return { status: "invalid_decision", reason: "Claude did not produce JSON" };
