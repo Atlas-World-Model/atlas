@@ -898,15 +898,19 @@ CAST: [the attribution cast text]`,
     }
 
     case "kg-refresh": {
-      const { runKgProfileRefresh } = await import("../../../workers/src/kg-profile-refresh.js");
-      const result = await runKgProfileRefresh();
-      await recordProactiveAction(
-        "kg_profile_refresh",
-        "contributors",
-        result.failed > 0 ? "partial_failure" : "queued",
-        `Queued ${result.queued}/${result.targets} KG profile refresh jobs`,
-        result,
-      );
+      try {
+        const { runKgProfileRefresh } = await import("../../../workers/src/kg-profile-refresh.js");
+        const result = await runKgProfileRefresh();
+        await recordProactiveAction(
+          "kg_profile_refresh",
+          "contributors",
+          result.failed > 0 ? "partial_failure" : "queued",
+          `Queued ${result.queued}/${result.targets} KG profile refresh jobs`,
+          result,
+        );
+      } catch (err: any) {
+        console.error(`[brain-api] kg-refresh unavailable: ${err.message}`);
+      }
       break;
     }
 

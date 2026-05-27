@@ -52,6 +52,12 @@ export async function runLifecycleCheck(): Promise<void> {
             break;
           }
           if (process.env.ATLAS_LOOTI_API_BASE_URL && process.env.ATLAS_LOOTI_API_KEY) {
+            // Pre-check: verify the Looti campaign still exists before attempting synthesis.
+            const lootiCheck = run.campaignId ? await fetchLootiCampaign(run.campaignId) : null;
+            if (run.campaignId && !lootiCheck) {
+              result = `Looti campaign ${run.campaignId} not found; skipping synthesis`;
+              break;
+            }
             const synthesis = await synthesizeCampaign({
               db,
               campaignRunId: run.id,
