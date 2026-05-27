@@ -33,15 +33,17 @@ jobs:
           key: ${{ secrets.VPS_SSH_KEY }}
           script: |
             cd /opt/atlas
-            # Dry-run transpile to catch missing modules before restarting
-            tmpdir=$(mktemp -d)
-            /root/.bun/bin/bun build --no-bundle services/runtime/src/index.ts --outdir "$tmpdir" 2>&1
-            rc=$?
-            rm -rf "$tmpdir"
-            if [ $rc -ne 0 ]; then
-              echo "::error::Import check failed — aborting deploy to avoid crashing the runtime"
+            # Dry-run transpile to catch missing modules before restarting.
+            # Bun --no-bundle exits non-zero on write errors even when transpile succeeds,
+            # so we check stderr for actual import failures instead of exit code.
+            output=$(/root/.bun/bin/bun build --no-bundle services/runtime/src/index.ts --outdir /tmp/atlas-check 2>&1)
+            if echo "$output" | grep -qi "Cannot find module\|Cannot find package\|Could not resolve"; then
+              echo "::error::Import check failed:"
+              echo "$output"
               exit 1
             fi
+            rm -rf /tmp/atlas-check
+            echo "Import check passed"
 
       - name: Restart runtime
         uses: appleboy/ssh-action@v1
