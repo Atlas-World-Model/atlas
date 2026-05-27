@@ -7,9 +7,9 @@ Allocations drafted: 10
 ## Decision
 
 - [ ] No world update
-- [ ] Append timeline note
+- [x] Append timeline note
 - [ ] Add candidate observation
-- [ ] Apply reviewed world-state update
+- [x] Apply reviewed world-state update
 - [ ] Launch follow-up campaign
 
 ## Notes
