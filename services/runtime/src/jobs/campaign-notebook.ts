@@ -572,11 +572,11 @@ function renderCampaignIndex(pages: Array<{
     const snapshot = page.snapshotJson || {};
     const stage = typeof snapshot.stage === "string" ? snapshot.stage : "unknown";
     const prompt = typeof snapshot.prompt === "string" ? snapshot.prompt : "";
+    const displayTitle = prompt ? sentenceCase(prompt) : page.title;
     return `<a href="/campaigns/${escapeHtml(page.slug)}" class="post">
       <div class="post-number">${index + 1}</div>
-      <div class="post-title">${escapeHtml(page.title)}</div>
+      <div class="post-title">${escapeHtml(displayTitle)}</div>
       <div class="post-date">${escapeHtml(stage)} · updated ${escapeHtml(formatDate(page.updatedAt))}</div>
-      <p class="post-summary">${escapeHtml(prompt.slice(0, 180))}</p>
     </a>`;
   }).join("\n\n");
 
@@ -588,7 +588,6 @@ function renderCampaignIndex(pages: Array<{
     <p class="tagline">Live public notebooks from Atlas campaigns.</p>
 
     ${items || "<p>No campaign notebooks have been published yet.</p>"}`,
-    extraCss: ".post-summary{margin-top:8px;color:var(--muted);font-size:.9375rem;line-height:1.55}",
   });
 }
 
