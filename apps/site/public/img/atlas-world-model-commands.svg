@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1500" height="500" viewBox="0 0 1500 500">
+  <rect width="1500" height="500" fill="#ffffff"/>
+  <rect x="28" y="26" width="1444" height="448" fill="#ffffff" stroke="#a9a9a9" stroke-width="3"/>
+  <line x1="492" y1="26" x2="492" y2="474" stroke="#a9a9a9" stroke-width="3"/>
+  <line x1="28" y1="86" x2="1472" y2="86" stroke="#a9a9a9" stroke-width="3"/>
+  <style>
+    text{font-family:Menlo,Consolas,'Courier New',monospace;fill:#111;letter-spacing:0}
+    .header{font-size:26px;font-weight:700}
+    .row{font-size:22px}
+    .cmd{fill:#00a6b4}
+  </style>
+
+  <text class="header" x="54" y="62">Command</text>
+  <text class="header" x="520" y="62">Public Reply</text>
+
+  <text class="row cmd" x="54" y="119">@atlas world model</text>
+  <text class="row" x="520" y="119">current public model of people/projects/topics it tracks</text>
+
+  <text class="row cmd" x="54" y="149">@atlas world changes</text>
+  <text class="row" x="520" y="149">recent belief updates and why they changed</text>
+
+  <text class="row cmd" x="54" y="179">@atlas world people</text>
+  <text class="row" x="520" y="179">people Atlas associates with topics based on public evidence</text>
+
+  <text class="row cmd" x="54" y="209">@atlas world topics</text>
+  <text class="row" x="520" y="209">tracked topics, evidence, and uncertainty</text>
+
+  <text class="row cmd" x="54" y="239">@atlas campaign brief</text>
+  <text class="row" x="520" y="239">current campaign question, state, audience, best links</text>
+
+  <text class="row cmd" x="54" y="269">@atlas campaign learnings</text>
+  <text class="row" x="520" y="269">what Atlas has learned from replies so far</text>
+
+  <text class="row cmd" x="54" y="299">@atlas campaign answers</text>
+  <text class="row" x="520" y="299">top answers, clusters, disagreements, missing inputs</text>
+
+  <text class="row cmd" x="54" y="329">@atlas campaign contributors</text>
+  <text class="row" x="520" y="329">ranked contributors and what each added</text>
+
+  <text class="row cmd" x="54" y="359">@atlas campaign gaps</text>
+  <text class="row" x="520" y="359">missing evidence before memory or next question</text>
+
+  <text class="row cmd" x="54" y="389">@atlas campaign notebook</text>
+  <text class="row" x="520" y="389">notebook URL plus latest public note summary</text>
+
+  <text class="row cmd" x="54" y="419">@atlas campaign next</text>
+  <text class="row" x="520" y="419">what Atlas thinks the next useful campaign should ask</text>
+
+  <text class="row cmd" x="54" y="449">@atlas world help</text>
+  <text class="row" x="520" y="449">this command list</text>
+</svg>

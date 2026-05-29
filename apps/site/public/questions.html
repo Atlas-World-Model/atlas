@@ -63,12 +63,16 @@
       justify-content: space-between;
       padding: 14px 18px;
       background: var(--surface);
-      border-bottom: 1px solid var(--soft-line);
       backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border-bottom: 1px solid var(--soft-line);
     }
 
     .icon-button,
     .theme-toggle {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
       min-width: 42px;
       height: 36px;
       border: 1px solid var(--line);
@@ -81,6 +85,19 @@
       font-size: 0.875rem;
       font-weight: 600;
     }
+
+    .theme-toggle svg {
+      width: 18px;
+      height: 18px;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    :root[data-theme="dark"] .icon-moon,
+    :root:not([data-theme="dark"]) .icon-sun { display: none; }
 
     .icon-button {
       display: inline-flex;
@@ -126,6 +143,23 @@
     .site-nav a:hover {
       background: var(--soft-line);
       text-decoration: none;
+    }
+
+    .site-nav a.active {
+      background: var(--soft-line);
+      color: var(--link);
+    }
+
+    .nav-divider {
+      height: 1px;
+      background: var(--soft-line);
+      margin: 6px 10px;
+    }
+
+    .site-nav a[href^="http"]::after {
+      content: " \2197";
+      font-size: 0.75em;
+      opacity: 0.5;
     }
 
     article {
@@ -250,13 +284,15 @@
     <button class="icon-button" type="button" data-menu-toggle aria-label="Open navigation" aria-expanded="false">
       <span></span><span></span><span></span>
     </button>
-    <button class="theme-toggle" type="button" data-theme-toggle aria-label="Toggle dark mode">Dark</button>
+    <button class="theme-toggle" type="button" data-theme-toggle aria-label="Switch to dark mode"><svg class="icon-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"></path></svg><svg class="icon-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12.8A8.5 8.5 0 1 1 11.2 3a6.7 6.7 0 0 0 9.8 9.8Z"></path></svg></button>
   </header>
   <nav class="site-nav" aria-label="Site navigation">
-    <a href="/">World Model</a>
-    <a href="/questions">Questions</a>
-    <a href="/outcomes">Outcomes</a>
-    <a href="/blog">All Articles</a>
+    <a href="/blog" class="active">Articles</a>
+    <a href="/campaigns">Campaigns</a>
+    <a href="/architecture">Architecture</a>
+    <div class="nav-divider"></div>
+    <a href="https://farcaster.xyz/atlas">Farcaster</a>
+    <a href="https://farcaster.xyz/miniapps/b9xYkctvKDSj/looti">Looti</a>
   </nav>
   <article>
     <a href="/" class="back">&larr; Atlas</a>
@@ -405,9 +441,9 @@
 
     <div class="links">
       <a href="/blog">All Articles</a>
-      <a href="https://farcaster.xyz/atlas">Atlas on Farcaster</a>
+      <a href="/campaigns">Campaigns</a>
+      <a href="https://farcaster.xyz/atlas">Farcaster</a>
       <a href="https://farcaster.xyz/miniapps/b9xYkctvKDSj/looti">Looti</a>
-      <button class="theme-toggle" type="button" data-theme-toggle aria-label="Toggle dark mode">Dark</button>
     </div>
   </article>
   <script src="/theme.js"></script>

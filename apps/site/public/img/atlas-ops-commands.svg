@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1500" height="320" viewBox="0 0 1500 320">
+  <rect width="1500" height="320" fill="#ffffff"/>
+  <rect x="28" y="26" width="1444" height="268" fill="#ffffff" stroke="#a9a9a9" stroke-width="3"/>
+  <line x1="492" y1="26" x2="492" y2="294" stroke="#a9a9a9" stroke-width="3"/>
+  <line x1="28" y1="86" x2="1472" y2="86" stroke="#a9a9a9" stroke-width="3"/>
+  <style>
+    text{font-family:Menlo,Consolas,'Courier New',monospace;fill:#111;letter-spacing:0}
+    .header{font-size:26px;font-weight:700}
+    .row{font-size:24px}
+    .cmd{fill:#00a6b4}
+  </style>
+
+  <text class="header" x="54" y="62">Command</text>
+  <text class="header" x="520" y="62">Public Reply</text>
+
+  <text class="row cmd" x="54" y="123">@atlas ops: status</text>
+  <text class="row" x="520" y="123">runtime health, worker health, active campaign, notebook URL</text>
+
+  <text class="row cmd" x="54" y="153">@atlas ops: check og &lt;url&gt;</text>
+  <text class="row" x="520" y="153">OG title/image URL/image status</text>
+
+  <text class="row cmd" x="54" y="183">@atlas ops: recent errors</text>
+  <text class="row" x="520" y="183">short summary of recent runtime errors, redacted</text>
+
+  <text class="row cmd" x="54" y="213">@atlas ops: check worker</text>
+  <text class="row" x="520" y="213">Cloudflare worker health</text>
+
+  <text class="row cmd" x="54" y="243">@atlas ops: check notebook</text>
+  <text class="row" x="520" y="243">notebook page status + OG status</text>
+
+  <text class="row cmd" x="54" y="273">@atlas ops: active campaign</text>
+  <text class="row" x="520" y="273">active campaign id/stage/notebook/Looti URL</text>
+</svg>

@@ -1,0 +1,108 @@
+{
+  "updatedAt": "2026-05-24",
+  "title": "Atlas Architecture Memory",
+  "intro": "A live-readable map of Atlas's own code, infrastructure, memory layers, roadmap, and known gaps.",
+  "status": [
+    {
+      "label": "Runtime",
+      "state": "active",
+      "detail": "VPS runtime handles Farcaster webhooks, Atlas brain prompts, direct replies, and brain API actions."
+    },
+    {
+      "label": "Campaign lifecycle",
+      "state": "active",
+      "detail": "Cloudflare Workflow advances durable campaign stages; runtime handles synthesis and evaluation work."
+    },
+    {
+      "label": "Architecture memory",
+      "state": "early",
+      "detail": "Backfilled as markdown and audit rows; loaded into Atlas self-context as compact current architecture."
+    },
+    {
+      "label": "Code diff awareness",
+      "state": "missing",
+      "detail": "Atlas does not inspect GitHub, PRs, local git history, or raw code diffs unless explicit artifacts are supplied."
+    }
+  ],
+  "memoryLayers": [
+    {
+      "name": "Durable world memory",
+      "purpose": "Beliefs about the world changed only by reviewed Looti-ranked campaign evidence."
+    },
+    {
+      "name": "Contributor memory",
+      "purpose": "Who contributed, what they answered, where they ranked, and whether prior contributions held up."
+    },
+    {
+      "name": "Active campaign memory",
+      "purpose": "Live contributor snapshots and selected follow-up conversation state during collection."
+    },
+    {
+      "name": "KG profile memory",
+      "purpose": "Generated profiles for the operator and top campaign contributors."
+    },
+    {
+      "name": "Architecture memory",
+      "purpose": "Atlas's own code, infra, capabilities, deploys, failure modes, and known gaps."
+    }
+  ],
+  "roadmap": [
+    {
+      "stage": "Current",
+      "items": [
+        "Keep architecture memory in world/architecture and load the compact current snapshot into Atlas self-context.",
+        "Use active campaign memory so Atlas can see live contributor answers before campaign resolution.",
+        "Use pre-publish leases to reduce duplicate Atlas posts and duplicate contributor replies."
+      ]
+    },
+    {
+      "stage": "Next",
+      "items": [
+        "Create code_change_artifact records for meaningful deploys, commits, and PR merges.",
+        "Generate architecture-memory updates automatically on deploy and PR merge.",
+        "Expose the latest architecture events on this page from structured data instead of hand-written JSON."
+      ]
+    },
+    {
+      "stage": "Later",
+      "items": [
+        "Link code contributors to Farcaster identities.",
+        "Use campaign track record and linked identity as a pre-qualification layer for PR rights.",
+        "Let Atlas weigh proposed memory/code changes against contributor history."
+      ]
+    }
+  ],
+  "incidents": [
+    {
+      "name": "Campaign launch order",
+      "summary": "Atlas created a Looti campaign before casting the public question. Launch now casts first and uses the real Farcaster cast hash."
+    },
+    {
+      "name": "Budget fallback",
+      "summary": "One path used a tiny 5 ATL fallback. Live campaign paths now use configured campaign budget defaults."
+    },
+    {
+      "name": "Contributor memory missing",
+      "summary": "Ranked answers were stored without contributor/reputation upserts. Top ranked winners now upsert contributor memory and reputation."
+    },
+    {
+      "name": "Live campaign awareness missing",
+      "summary": "Atlas did not know @ellis had already answered in another thread. Active campaign awareness is now loaded into relevant normal replies."
+    },
+    {
+      "name": "Duplicate public posts",
+      "summary": "Some public side effects were recorded only after publishing. Atlas now claims action leases before high-risk publishing paths."
+    },
+    {
+      "name": "Code diff awareness",
+      "summary": "Atlas spoke too loosely about reading diffs. Architecture memory now states that code/PR awareness requires explicit artifacts."
+    }
+  ],
+  "knownGaps": [
+    "Architecture updates are not yet generated automatically from PRs or deploys.",
+    "Raw Farcaster payloads are not archived for every conversation.",
+    "Contributor conversation memory is selective and not every social chat becomes durable memory.",
+    "Code-change authorship is not yet linked to Farcaster identity or contributor reputation.",
+    "PR rights and code-review weighting are not implemented."
+  ]
+}

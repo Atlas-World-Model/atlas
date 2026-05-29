@@ -13,7 +13,10 @@
     root.dataset.theme = theme;
     for (const button of document.querySelectorAll("[data-theme-toggle]")) {
       button.setAttribute("aria-pressed", theme === "dark" ? "true" : "false");
-      button.textContent = theme === "dark" ? "Light" : "Dark";
+      button.setAttribute(
+        "aria-label",
+        theme === "dark" ? "Switch to light mode" : "Switch to dark mode",
+      );
     }
   }
 
